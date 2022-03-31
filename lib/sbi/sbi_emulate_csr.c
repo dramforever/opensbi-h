@@ -14,6 +14,7 @@
 #include <sbi/sbi_emulate_csr.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hart.h>
+#include <sbi/sbi_hext.h>
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
@@ -147,7 +148,11 @@ int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
 #undef switchcase_hpm
 
 	default:
-		ret = SBI_ENOTSUPP;
+		if ((csr_num & 0x300) == 0x200) {
+			ret = sbi_hext_csr_read(csr_num, regs, csr_val);
+		} else {
+			ret = SBI_ENOTSUPP;
+		}
 		break;
 	};
 
@@ -185,7 +190,11 @@ int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		break;
 #endif
 	default:
-		ret = SBI_ENOTSUPP;
+		if ((csr_num & 0x300) == 0x200) {
+			ret = sbi_hext_csr_write(csr_num, regs, csr_val);
+		} else {
+			ret = SBI_ENOTSUPP;
+		}
 		break;
 	};
 

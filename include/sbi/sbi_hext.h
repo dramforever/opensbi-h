@@ -17,6 +17,9 @@ extern unsigned long hext_shadow_pt_size;
 
 int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot);
 
+int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs, unsigned long *csr_val);
+int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs, unsigned long csr_val);
+
 inline bool sbi_hext_enabled() {
 	return hext_shadow_pt_start != 0;
 }
