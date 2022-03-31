@@ -70,6 +70,16 @@
 #define SSTATUS64_UXL			MSTATUS_UXL
 #define SSTATUS64_SD			MSTATUS64_SD
 
+#if __riscv_xlen == 32
+#define SSTATUS_WRITABLE_MASK                                                 \
+	(SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_VS | \
+	 SSTATUS_SUM | SSTATUS_MXR)
+#else
+#define SSTATUS_WRITABLE_MASK                                                 \
+	(SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_VS | \
+	 SSTATUS_SUM | SSTATUS_MXR | SSTATUS64_UXL)
+#endif
+
 #if __riscv_xlen == 64
 #define HSTATUS_VSXL			_UL(0x300000000)
 #define HSTATUS_VSXL_SHIFT		32
@@ -132,6 +142,16 @@
 #define SATP_MODE_SV57			_UL(10)
 #define SATP_MODE_SV64			_UL(11)
 
+#define SATP32_MODE_SHIFT		31
+#define SATP32_ASID_SHIFT		22
+#define SATP32_ASID_MASK		_UL(0x1FC00000)
+#define SATP32_PPN			_UL(0x003FFFFF)
+
+#define SATP64_MODE_SHIFT		60
+#define SATP64_ASID_SHIFT		44
+#define SATP64_ASID_MASK		_ULL(0x03FFF00000000000)
+#define SATP64_PPN			_ULL(0x00000FFFFFFFFFFF)
+
 #define HGATP_MODE_OFF			_UL(0)
 #define HGATP_MODE_SV32X4		_UL(1)
 #define HGATP_MODE_SV39X4		_UL(8)
@@ -169,6 +189,11 @@
 #define SSTATUS_SD			SSTATUS64_SD
 #define SATP_MODE			SATP64_MODE
 
+#define SATP_PPN			SATP64_PPN
+#define SATP_ASID_SHIFT			SATP64_ASID_SHIFT
+#define SATP_ASID_MASK			SATP64_ASID_MASK
+#define SATP_MODE_SHIFT			SATP64_MODE_SHIFT
+
 #define HGATP_PPN			HGATP64_PPN
 #define HGATP_VMID_SHIFT		HGATP64_VMID_SHIFT
 #define HGATP_VMID_MASK			HGATP64_VMID_MASK
@@ -177,6 +202,11 @@
 #define MSTATUS_SD			MSTATUS32_SD
 #define SSTATUS_SD			SSTATUS32_SD
 #define SATP_MODE			SATP32_MODE
+
+#define SATP_PPN			SATP32_PPN
+#define SATP_ASID_SHIFT			SATP32_ASID_SHIFT
+#define SATP_ASID_MASK			SATP32_ASID_MASK
+#define SATP_MODE_SHIFT			SATP32_MODE_SHIFT
 
 #define HGATP_PPN			HGATP32_PPN
 #define HGATP_VMID_SHIFT		HGATP32_VMID_SHIFT
@@ -812,6 +842,34 @@
 #define SMSTATEEN_STATEN_SHIFT		63
 #define SMSTATEEN_STATEN		(_ULL(1) << SMSTATEEN_STATEN_SHIFT)
 
+/* ===== Page Table Entry Encoding ===== */
+
+#define PTE_V				(1 << 0)
+#define PTE_R				(1 << 1)
+#define PTE_W				(1 << 2)
+#define PTE_X				(1 << 3)
+#define PTE_U				(1 << 4)
+#define PTE_G				(1 << 5)
+#define PTE_A				(1 << 6)
+#define PTE_D				(1 << 7)
+
+#define PTE_RSW_SHIFT			8
+#define PTE_RSW_MASK			0x3
+
+#define PTE_PPN_SHIFT 			10
+#define PTE64_PPN_MASK 			((_ULL(0x1) << 44) - 1)
+#define PTE32_PPN_MASK			((1 << 22) - 1)
+
+#define PTE64_RESERVED_SHIFT		54
+
+#if __riscv_xlen == 64
+# define PTE_PPN_MASK			PTE64_PPN_MASK
+#elif __riscv_xlen == 32
+# define PTE_PPN_MASK			PTE32_PPN_MASK
+#else
+# error "Unexpected __riscv_xlen"
+#endif
+
 /* ===== Instruction Encodings ===== */
 
 #define INSN_MATCH_LB			0x3
@@ -896,6 +954,52 @@
 
 #define INSN_MASK_FENCE_TSO		0xffffffff
 #define INSN_MATCH_FENCE_TSO		0x8330000f
+#define INSN_MASK_SRET			0xffffff80
+#define INSN_MATCH_SRET			0x10200000
+
+#define INSN_MASK_SFENCE_VMA		0xfe007f80
+#define INSN_MATCH_SFENCE_VMA		0x12000000
+
+#define INSN_MASK_SINVAL_VMA		0xfe007f80
+#define INSN_MATCH_SINVAL_VMA		0x16000000
+
+#define INSN_MASK_HFENCE_VVMA		0xfe007fff
+#define INSN_MATCH_HFENCE_VVMA		0x22000073
+#define INSN_MASK_HFENCE_GVMA		0xfe007fff
+#define INSN_MATCH_HFENCE_GVMA		0x62000073
+
+#define INSN_MASK_HLV_B			0xfff0707f
+#define INSN_MATCH_HLV_B		0x60004073
+#define INSN_MASK_HLV_BU		0xfff0707f
+#define INSN_MATCH_HLV_BU		0x60104073
+#define INSN_MASK_HLV_H			0xfff0707f
+#define INSN_MATCH_HLV_H		0x64004073
+#define INSN_MASK_HLV_HU		0xfff0707f
+#define INSN_MATCH_HLV_HU		0x64104073
+#define INSN_MASK_HLV_W			0xfff0707f
+#define INSN_MATCH_HLV_W		0x68004073
+#define INSN_MASK_HSV_B			0xfe007fff
+#define INSN_MATCH_HSV_B		0x62004073
+#define INSN_MASK_HSV_H			0xfe007fff
+#define INSN_MATCH_HSV_H		0x66004073
+#define INSN_MASK_HSV_W			0xfe007fff
+#define INSN_MATCH_HSV_W		0x6a004073
+
+#define INSN_MASK_HLVX_HU		0xfff0707f
+#define INSN_MATCH_HLVX_HU		0x64304073
+#define INSN_MASK_HLVX_WU		0xfff0707f
+#define INSN_MATCH_HLVX_WU		0x68304073
+
+#if __riscv_xlen > 32
+
+#define INSN_MASK_HLV_WU		0xfff0707f
+#define INSN_MATCH_HLV_WU		0x68104073
+#define INSN_MASK_HLV_D			0xfff0707f
+#define INSN_MATCH_HLV_D		0x6c004073
+#define INSN_MASK_HSV_D			0xfe007fff
+#define INSN_MATCH_HSV_D		0x6e004073
+
+#endif
 
 #define INSN_MASK_VECTOR_UNIT_STRIDE		0xfdf0707f
 #define INSN_MASK_VECTOR_FAULT_ONLY_FIRST	0xfdf0707f

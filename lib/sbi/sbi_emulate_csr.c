@@ -13,6 +13,7 @@
 #include <sbi/sbi_emulate_csr.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_hart.h>
+#include <sbi/sbi_hext.h>
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
@@ -46,8 +47,15 @@ int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
 {
 	int ret = 0;
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+	struct hext_state *hext = sbi_hext_current_state();
 	ulong prev_mode = sbi_mstatus_prev_mode(regs->mstatus);
-	bool virt = sbi_regs_from_virt(regs);
+	bool virt;
+
+	if (misa_extension('H')) {
+		virt = sbi_regs_from_virt(regs);
+	} else {
+		virt = hext->available && hext->virt;
+	}
 
 	switch (csr_num) {
 	case CSR_HTIMEDELTA:
@@ -140,8 +148,15 @@ int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
 #undef switchcase_hpm_2
 #undef switchcase_hpm
 
+	case CSR_SATP:
+		return sbi_hext_csr_read(csr_num, regs, csr_val);
+
 	default:
-		ret = SBI_ENOTSUPP;
+		if ((csr_num & 0x300) == 0x200) {
+			ret = sbi_hext_csr_read(csr_num, regs, csr_val);
+		} else {
+			ret = SBI_ENOTSUPP;
+		}
 		break;
 	}
 
@@ -152,8 +167,15 @@ int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			  ulong csr_val)
 {
 	int ret = 0;
+	struct hext_state *hext = sbi_hext_current_state();
 	ulong prev_mode = sbi_mstatus_prev_mode(regs->mstatus);
-	bool virt = sbi_regs_from_virt(regs);
+	bool virt;
+
+	if (misa_extension('H')) {
+		virt = sbi_regs_from_virt(regs);
+	} else {
+		virt = hext->available && hext->virt;
+	}
 
 	switch (csr_num) {
 	case CSR_HTIMEDELTA:
@@ -170,8 +192,15 @@ int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			ret = SBI_ENOTSUPP;
 		break;
 #endif
+	case CSR_SATP:
+		return sbi_hext_csr_write(csr_num, regs, csr_val);
+
 	default:
-		ret = SBI_ENOTSUPP;
+		if ((csr_num & 0x300) == 0x200) {
+			ret = sbi_hext_csr_write(csr_num, regs, csr_val);
+		} else {
+			ret = SBI_ENOTSUPP;
+		}
 		break;
 	}
 

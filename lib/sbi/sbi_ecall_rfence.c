@@ -14,6 +14,7 @@
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_trap.h>
 #include <sbi/sbi_tlb.h>
+#include <sbi/sbi_hext.h>
 
 static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
 				    struct sbi_trap_regs *regs,
@@ -23,10 +24,11 @@ static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
 	unsigned long vmid;
 	struct sbi_tlb_info tlb_info;
 	u32 source_hart = current_hartid();
+	struct hext_state *hext = sbi_hext_current_state();
 
 	if (funcid >= SBI_EXT_RFENCE_REMOTE_HFENCE_GVMA_VMID &&
 	    funcid <= SBI_EXT_RFENCE_REMOTE_HFENCE_VVMA)
-		if (!misa_extension('H'))
+		if (!misa_extension('H') && !hext->available)
 			return SBI_ENOTSUPP;
 
 	switch (funcid) {
@@ -46,17 +48,25 @@ static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
 		ret = sbi_tlb_request(regs->a0, regs->a1, &tlb_info);
 		break;
 	case SBI_EXT_RFENCE_REMOTE_HFENCE_VVMA:
-		vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
-		vmid = vmid >> HGATP_VMID_SHIFT;
+		if (misa_extension('H')) {
+			vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
+			vmid = vmid >> HGATP_VMID_SHIFT;
+		} else {
+			vmid = 0;
+		}
 		SBI_TLB_INFO_INIT(&tlb_info, regs->a2, regs->a3, 0, vmid,
 				  SBI_TLB_HFENCE_VVMA, source_hart);
 		ret = sbi_tlb_request(regs->a0, regs->a1, &tlb_info);
 		break;
 	case SBI_EXT_RFENCE_REMOTE_HFENCE_VVMA_ASID:
-		vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
-		vmid = vmid >> HGATP_VMID_SHIFT;
+		if (misa_extension('H')) {
+			vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
+			vmid = vmid >> HGATP_VMID_SHIFT;
+		} else {
+			vmid = 0;
+		}
 		SBI_TLB_INFO_INIT(&tlb_info, regs->a2, regs->a3, regs->a4,
-				  vmid, SBI_TLB_HFENCE_VVMA_ASID, source_hart);
+			vmid, SBI_TLB_HFENCE_VVMA_ASID, source_hart);
 		ret = sbi_tlb_request(regs->a0, regs->a1, &tlb_info);
 		break;
 	case SBI_EXT_RFENCE_REMOTE_SFENCE_VMA:

@@ -14,3 +14,34 @@ SortIncludes: false
 SpacesInContainerLiterals: false
 TabWidth: 8
 UseTab: Always
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
+
+ForEachMacros:
+  - "fdt_for_each_subnode"
+  - "fdt_for_each_property_offset"
+  - "sbi_hartmask_for_each_hart"
+  - "sbi_list_for_each"
+  - "sbi_list_for_each_entry"
+  - "sbi_domain_for_each"
+  - "sbi_domain_for_each_memregion"
+
+StatementMacros:
+  - "switchcase_hpm"
+  - "switchcase_hpm_2"
+  - "switchcase_hpm_4"
+  - "switchcase_hpm_8"
+  - "switchcase_hpm_16"
+  - "switchcase_csr_read"
+  - "switchcase_csr_read_2"
+  - "switchcase_csr_read_4"
+  - "switchcase_csr_read_8"
+  - "switchcase_csr_read_16"
+  - "switchcase_csr_read_32"
+  - "switchcase_csr_read_64"
+  - "switchcase_csr_write"
+  - "switchcase_csr_write_2"
+  - "switchcase_csr_write_4"
+  - "switchcase_csr_write_8"
+  - "switchcase_csr_write_16"
+  - "switchcase_csr_write_32"
+  - "switchcase_csr_write_64"

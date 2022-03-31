@@ -13,6 +13,7 @@
 #include <sbi/sbi_bitops.h>
 #include <sbi/sbi_emulate_csr.h>
 #include <sbi/sbi_error.h>
+#include <sbi/sbi_hext.h>
 #include <sbi/sbi_illegal_insn.h>
 #include <sbi/sbi_pmu.h>
 #include <sbi/sbi_trap.h>
@@ -63,10 +64,15 @@ static int system_opcode_insn(ulong insn, struct sbi_trap_regs *regs)
 
 	/* Ensure that we got CSR read/write instruction */
 	int funct3 = GET_RM(insn);
-	if (funct3 == 0 || funct3 == 4) {
-		sbi_printf("%s: Invalid opcode for CSR read/write instruction",
-			   __func__);
-		return truly_illegal_insn(insn, regs);
+
+	if ((funct3 & 0x3) == 0) {
+		/* Not CSR instruction */
+		if (sbi_hext_insn(insn, regs)) {
+			/* TODO: Extend to more instruction emulation */
+			return truly_illegal_insn(insn, regs);
+		} else {
+			return 0;
+		}
 	}
 
 	if (sbi_emulate_csr_read(csr_num, regs, &csr_val))

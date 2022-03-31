@@ -1,3 +1,48 @@
+OpenSBI-H: OpenSBI with Software-emulated Hypervisor Extension
+==============================================================
+
+This is a fork of [OpenSBI] that adds software-emulated hypervisor extension
+support. It is very much work-in-progress at the moment.
+
+[OpenSBI]: https://github.com/riscv-software-src/opensbi
+
+Status updates
+--------------
+
+### 2022-08-14
+
+OpenSBI-H runs on RISC-V hardware, namely StarFive VisionFive. We've achieved
+our goal of adding hypervisor support for existing hardware, but there are still
+many more details to fix before we achieve hypervisor spec compliance.
+Performance improvements are also needed.
+
+![OpenSBI-H running KVM on real hardware](https://user-images.githubusercontent.com/2818072/184507980-55601f7c-ec32-4ca1-9e57-6963bca70346.png)
+
+### 2022-08-13
+
+After a few fixes, OpenSBI-H runs in KVM.
+
+Tested with QEMU `master` branch due to a bug with `mcounteren` in version 7.0
+(and possibly below) that [was fixed][mcounteren-fix] and due to release with
+version 7.1.
+
+[mcounteren-fix]: https://gitlab.com/qemu-project/qemu/-/commit/a5a92fd6ef038170231933c60cc2780f52b3a2e1
+
+### 2022-08-09
+
+We can run [QEMU]/OpenSBI-H/[XVisor] and boot a minimal mainline Linux 5.19,
+single core, and enter a [Busybox]-based initramfs.
+
+[QEMU]: https://qemu.org
+[XVisor]: http://xhypervisor.org
+[Busybox]: https://busybox.net
+
+-------------------
+
+The original `README.md` follows:
+
+-------------------
+
 RISC-V Open Source Supervisor Binary Interface (OpenSBI)
 ========================================================
 

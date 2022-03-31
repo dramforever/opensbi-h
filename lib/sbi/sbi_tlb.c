@@ -23,6 +23,7 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_platform.h>
 #include <sbi/sbi_pmu.h>
+#include <sbi/sbi_hext.h>
 
 static unsigned long tlb_sync_off;
 static unsigned long tlb_fifo_off;
@@ -42,6 +43,13 @@ static void sbi_tlb_local_hfence_vvma(struct sbi_tlb_info *tinfo)
 	unsigned long i, hgatp;
 
 	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_VVMA_RCVD);
+
+	if (!misa_extension('H')) {
+		if (sbi_hext_current_state()->available)
+			sbi_hext_pt_flush_all(
+				&sbi_hext_current_state()->pt_area);
+		return;
+	}
 
 	hgatp = csr_swap(CSR_HGATP,
 			 (vmid << HGATP_VMID_SHIFT) & HGATP_VMID_MASK);
@@ -67,6 +75,13 @@ static void sbi_tlb_local_hfence_gvma(struct sbi_tlb_info *tinfo)
 
 	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_GVMA_RCVD);
 
+	if (!misa_extension('H')) {
+		if (sbi_hext_current_state()->available)
+			sbi_hext_pt_flush_all(
+				&sbi_hext_current_state()->pt_area);
+		return;
+	}
+
 	if ((start == 0 && size == 0) || (size == SBI_TLB_FLUSH_ALL)) {
 		__sbi_hfence_gvma_all();
 		return;
@@ -84,6 +99,11 @@ static void sbi_tlb_local_sfence_vma(struct sbi_tlb_info *tinfo)
 	unsigned long i;
 
 	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_SFENCE_VMA_RCVD);
+
+	if (!misa_extension('H') && sbi_hext_current_state()->virt) {
+		tlb_flush_all();
+		return;
+	}
 
 	if ((start == 0 && size == 0) || (size == SBI_TLB_FLUSH_ALL)) {
 		tlb_flush_all();
@@ -107,6 +127,13 @@ static void sbi_tlb_local_hfence_vvma_asid(struct sbi_tlb_info *tinfo)
 	unsigned long i, hgatp;
 
 	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_VVMA_ASID_RCVD);
+
+	if (!misa_extension('H')) {
+		if (sbi_hext_current_state()->available)
+			sbi_hext_pt_flush_all(
+				&sbi_hext_current_state()->pt_area);
+		return;
+	}
 
 	hgatp = csr_swap(CSR_HGATP,
 			 (vmid << HGATP_VMID_SHIFT) & HGATP_VMID_MASK);
@@ -132,6 +159,12 @@ static void sbi_tlb_local_hfence_gvma_vmid(struct sbi_tlb_info *tinfo)
 	unsigned long i;
 
 	sbi_pmu_ctr_incr_fw(SBI_PMU_FW_HFENCE_GVMA_VMID_RCVD);
+	if (!misa_extension('H')) {
+		if (sbi_hext_current_state()->available)
+			sbi_hext_pt_flush_all(
+				&sbi_hext_current_state()->pt_area);
+		return;
+	}
 
 	if ((start == 0 && size == 0) || (size == SBI_TLB_FLUSH_ALL)) {
 		__sbi_hfence_gvma_vmid(vmid);
