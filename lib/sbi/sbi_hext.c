@@ -75,6 +75,57 @@ static int find_main_memory(void *fdt, unsigned long *addr, unsigned long *size)
 	return SBI_OK;
 }
 
+int patch_fdt_cpu_isa(void *fdt) {
+	int err, cpu, cpus_offset, len;
+	int total_new_strings = 0;
+	const void *prop, *isa_string;
+	void *new_isa_string;
+
+	cpus_offset = fdt_path_offset(fdt, "/cpus");
+	if (cpus_offset < 0) {
+		return SBI_ENODEV;
+	}
+
+	fdt_for_each_subnode(cpu, fdt, cpus_offset) {
+		fdt_getprop(fdt, cpu, "riscv,isa", &len);
+		total_new_strings += len + sizeof(struct fdt_property) + 1;
+	}
+
+	if (cpu < 0 && cpu != -FDT_ERR_NOTFOUND) {
+		return SBI_EFAIL;
+	}
+
+	err = fdt_open_into(fdt, fdt, fdt_totalsize(fdt) + total_new_strings);
+	if (err < 0) {
+		return SBI_ENOMEM;
+	}
+
+	fdt_for_each_subnode(cpu, fdt, cpus_offset) {
+		prop = fdt_getprop(fdt, cpu, "device_type", &len);
+		if (! prop || strncmp(prop, "cpu", strlen("cpu")) != 0) {
+			continue;
+		}
+
+		isa_string = fdt_getprop(fdt, cpu, "riscv,isa", &len);
+
+		err = fdt_setprop_placeholder(fdt, cpu, "riscv,isa", len + 1, &new_isa_string);
+		if (err < 0) {
+			return SBI_EFAIL;
+		}
+
+		memmove(new_isa_string, isa_string, len - 1);
+		((char*) new_isa_string)[len - 1] = 'h';
+		((char*) new_isa_string)[len] = '\0';
+	}
+
+	if (cpu < 0 && cpu != -FDT_ERR_NOTFOUND) {
+		return SBI_EFAIL;
+	}
+
+
+	return SBI_OK;
+}
+
 static int allocate_shadow_pt_space(struct sbi_scratch *scratch) {
 	int rc;
 	unsigned long mem_start, mem_size;
@@ -121,6 +172,10 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot) {
 		}
 
 		rc = allocate_shadow_pt_space(scratch);
+		if (rc)
+			return rc;
+
+		rc = patch_fdt_cpu_isa((void *) scratch->next_arg1);
 		if (rc)
 			return rc;
 
