@@ -14,6 +14,7 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_domain.h>
 #include <sbi/sbi_ecall.h>
+#include <sbi/sbi_hext.h>
 #include <sbi/sbi_hart.h>
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_hsm.h>
@@ -159,6 +160,24 @@ static void sbi_boot_print_hart(struct sbi_scratch *scratch, u32 hartid)
 	sbi_printf("Boot HART MHPM Count      : %d\n",
 		   sbi_hart_mhpm_count(scratch));
 	sbi_hart_delegation_dump(scratch, "Boot HART ", "         ");
+}
+
+static void sbi_boot_print_hext(struct sbi_scratch *scratch) {
+	sbi_printf("\n");
+
+	if (misa_extension('H')) {
+		sbi_printf("Hypervisor Extension      : Native\n");
+		return;
+	} else if (sbi_hext_enabled()) {
+		sbi_printf("Hypervisor Extension      : Emulated\n");
+	} else {
+		sbi_printf("Hypervisor Extension      : Not Emulated\n");
+		return;
+	}
+
+	sbi_printf("Shadow PT Space Base      : 0x%lx\n", hext_shadow_pt_start);
+	sbi_printf("Shadow PT Space Size      : %lu KiB\n", hext_shadow_pt_size);
+
 }
 
 static spinlock_t coldboot_lock = SPIN_LOCK_INITIALIZER;
@@ -309,6 +328,14 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
 		sbi_hart_hang();
 	}
 
+	rc = sbi_hext_init(scratch, TRUE);
+
+	if (rc) {
+		sbi_printf("%s: Initializing hypervisor extension emulation failed (error %d)\n",
+				__func__, rc);
+		sbi_hart_hang();
+	}
+
 	/*
 	 * Note: Finalize domains after HSM initialization so that we
 	 * can startup non-root domains.
@@ -345,6 +372,8 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
 	sbi_boot_print_domains(scratch);
 
 	sbi_boot_print_hart(scratch, hartid);
+
+	sbi_boot_print_hext(scratch);
 
 	wake_coldboot_harts(scratch, hartid);
 
@@ -394,6 +423,10 @@ static void init_warm_startup(struct sbi_scratch *scratch, u32 hartid)
 		sbi_hart_hang();
 
 	rc = sbi_timer_init(scratch, false);
+	if (rc)
+		sbi_hart_hang();
+
+	rc = sbi_hext_init(scratch, FALSE);
 	if (rc)
 		sbi_hart_hang();
 
