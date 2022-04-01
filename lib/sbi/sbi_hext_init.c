@@ -8,11 +8,6 @@
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_domain.h>
 
-struct hext_state {
-	unsigned long vsatp;
-	unsigned long hgatp;
-};
-
 unsigned long hext_shadow_pt_start;
 unsigned long hext_shadow_pt_size;
 
@@ -188,14 +183,4 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot) {
 	}
 
 	return SBI_OK;
-}
-
-int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs, unsigned long *csr_val) {
-	sbi_printf("%s: CSR 0x%03x: Not implemented\n", __func__, csr_num);
-	return SBI_ENOTSUPP;
-}
-
-int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs, unsigned long csr_val) {
-	sbi_printf("%s: CSR 0x%03x: Not implemented\n", __func__, csr_num);
-	return SBI_ENOTSUPP;
 }
