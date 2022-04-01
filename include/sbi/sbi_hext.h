@@ -15,6 +15,13 @@
 extern unsigned long hext_shadow_pt_start;
 extern unsigned long hext_shadow_pt_size;
 
+struct hext_state {
+	unsigned long hgatp;
+	// TODO
+};
+
+extern struct hext_state hart_hext_state[];
+
 int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot);
 
 int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs, unsigned long *csr_val);
