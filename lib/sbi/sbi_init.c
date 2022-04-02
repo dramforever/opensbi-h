@@ -170,14 +170,12 @@ static void sbi_boot_print_hext(struct sbi_scratch *scratch) {
 		return;
 	} else if (sbi_hext_enabled()) {
 		sbi_printf("Hypervisor Extension      : Emulated\n");
+		sbi_printf("Shadow PT Space Base      : 0x%lx\n", hext_shadow_pt_start);
+		sbi_printf("Shadow PT Space Size      : %lu KiB\n", hext_shadow_pt_size);
 	} else {
 		sbi_printf("Hypervisor Extension      : Not Emulated\n");
 		return;
 	}
-
-	sbi_printf("Shadow PT Space Base      : 0x%lx\n", hext_shadow_pt_start);
-	sbi_printf("Shadow PT Space Size      : %lu KiB\n", hext_shadow_pt_size);
-
 }
 
 static spinlock_t coldboot_lock = SPIN_LOCK_INITIALIZER;
