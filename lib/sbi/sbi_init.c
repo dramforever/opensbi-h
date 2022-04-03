@@ -162,7 +162,8 @@ static void sbi_boot_print_hart(struct sbi_scratch *scratch, u32 hartid)
 	sbi_hart_delegation_dump(scratch, "Boot HART ", "         ");
 }
 
-static void sbi_boot_print_hext(struct sbi_scratch *scratch) {
+static void sbi_boot_print_hext(struct sbi_scratch *scratch)
+{
 	sbi_printf("\n");
 
 	if (misa_extension('H')) {
@@ -170,8 +171,10 @@ static void sbi_boot_print_hext(struct sbi_scratch *scratch) {
 		return;
 	} else if (sbi_hext_enabled()) {
 		sbi_printf("Hypervisor Extension      : Emulated\n");
-		sbi_printf("Shadow PT Space Base      : 0x%lx\n", hext_shadow_pt_start);
-		sbi_printf("Shadow PT Space Size      : %lu KiB\n", hext_shadow_pt_size);
+		sbi_printf("Shadow PT Space Base      : 0x%lx\n",
+			   hext_shadow_pt_start);
+		sbi_printf("Shadow PT Space Size      : %lu KiB\n",
+			   hext_shadow_pt_size);
 	} else {
 		sbi_printf("Hypervisor Extension      : Not Emulated\n");
 		return;
@@ -329,8 +332,9 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
 	rc = sbi_hext_init(scratch, TRUE);
 
 	if (rc) {
-		sbi_printf("%s: Initializing hypervisor extension emulation failed (error %d)\n",
-				__func__, rc);
+		sbi_printf(
+			"%s: Initializing hypervisor extension emulation failed (error %d)\n",
+			__func__, rc);
 		sbi_hart_hang();
 	}
 
