@@ -69,6 +69,7 @@ static int system_opcode_insn(ulong insn, struct sbi_trap_regs *regs)
 			if (sbi_hext_insn(insn, regs)) {
 				return truly_illegal_insn(insn, regs);
 			} else {
+				regs->mepc += 4;
 				return 0;
 			}
 		} else {
