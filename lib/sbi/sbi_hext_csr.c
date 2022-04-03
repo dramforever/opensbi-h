@@ -7,7 +7,14 @@
 #include <sbi/sbi_hart.h>
 
 #define MIP_VS_ALL (MIP_VSEIP | MIP_VSSIP | MIP_VSTIP)
-#define HEDELEG_WRITABLE 0xb1ff
+
+#define HEDELEG_WRITABLE                                                \
+	((1U << CAUSE_MISALIGNED_FETCH) | (1U << CAUSE_FETCH_ACCESS) |  \
+	 (1U << CAUSE_ILLEGAL_INSTRUCTION) | (1U << CAUSE_BREAKPOINT) | \
+	 (1U << CAUSE_MISALIGNED_LOAD) | (1U << CAUSE_LOAD_ACCESS) |    \
+	 (1U << CAUSE_MISALIGNED_STORE) | (1U << CAUSE_STORE_ACCESS) |  \
+	 (1U << CAUSE_USER_ECALL) | (1U << CAUSE_FETCH_PAGE_FAULT) |    \
+	 (1U << CAUSE_LOAD_PAGE_FAULT) | (1U << CAUSE_STORE_PAGE_FAULT))
 
 #define HSTATUS_WRITABLE                                         \
 	(HSTATUS_GVA | HSTATUS_SPV | HSTATUS_SPVP | HSTATUS_HU | \
