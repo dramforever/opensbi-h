@@ -24,11 +24,14 @@ extern struct hext_state hart_hext_state[];
 
 int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot);
 
-int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs, unsigned long *csr_val);
-int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs, unsigned long csr_val);
+int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
+		      unsigned long *csr_val);
+int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
+		       unsigned long csr_val);
 int sbi_hext_insn(ulong insn, struct sbi_trap_regs *regs);
 
-inline bool sbi_hext_enabled() {
+inline bool sbi_hext_enabled()
+{
 	return hext_shadow_pt_start != 0;
 }
 
