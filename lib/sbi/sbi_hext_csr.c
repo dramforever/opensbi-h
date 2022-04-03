@@ -24,8 +24,9 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		      unsigned long *csr_val)
 {
 	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
-	if (!sbi_hext_enabled() || hext->virt)
+	if (!sbi_hext_enabled() || hext->virt || mpp < PRV_S)
 		return SBI_ENOTSUPP;
 
 	switch (csr_num) {
@@ -68,8 +69,9 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		       unsigned long csr_val)
 {
 	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
-	if (!sbi_hext_enabled() || hext->virt)
+	if (!sbi_hext_enabled() || hext->virt || mpp < PRV_S)
 		return SBI_ENOTSUPP;
 
 	switch (csr_num) {

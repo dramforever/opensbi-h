@@ -9,6 +9,7 @@
 int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 {
 	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
 	if (!sbi_hext_enabled() || hext->virt)
 		return SBI_ENOTSUPP;
@@ -17,12 +18,24 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 
 	switch (funct3) {
 	case 0b000:
+		if (mpp < PRV_S) {
+			return SBI_ENOTSUPP;
+		}
+
 		sbi_printf("%s: 0x%08lx: TODO: hfence.*\n", __func__, insn);
+
+		regs->mepc += 4;
 		return SBI_OK;
+
 	case 0b100:
+		if (mpp < PRV_S && !(hext->hstatus & HSTATUS_HU)) {
+			return SBI_ENOTSUPP;
+		}
+
 		sbi_printf("%s: 0x%08lx: TODO: Hypervisor load/store\n",
 			   __func__, insn);
 		return SBI_ENOTSUPP;
+
 	default:
 		/* Shouldn't be possible */
 		return SBI_ENOTSUPP;
