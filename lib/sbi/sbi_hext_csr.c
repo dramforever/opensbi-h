@@ -9,8 +9,9 @@
 #define MIP_VS_ALL (MIP_VSEIP | MIP_VSSIP | MIP_VSTIP)
 #define HEDELEG_WRITABLE 0xb1ff
 
-// TODO: Nested virtualization requires writable hstatus.{TVM,TW,TSR}
-#define HSTATUS_WRITABLE (HSTATUS_GVA | HSTATUS_SPV | HSTATUS_SPVP | HSTATUS_HU)
+#define HSTATUS_WRITABLE                                         \
+	(HSTATUS_GVA | HSTATUS_SPV | HSTATUS_SPVP | HSTATUS_HU | \
+	 HSTATUS_VTVM | HSTATUS_VTW | HSTATUS_VTSR)
 
 int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		      unsigned long *csr_val)
@@ -68,6 +69,10 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 	case CSR_HSTATUS:
 		csr_val = (csr_val & HSTATUS_WRITABLE) |
 			  (hext->hstatus & ~HSTATUS_WRITABLE);
+
+		if (!(hext_mstatus_features & MSTATUS_TW)) {
+			csr_val &= ~HSTATUS_VTW;
+		}
 
 		// TODO: hstatus.SPV = 0 requires mstatus.TSR
 		hext->hstatus = csr_val;
