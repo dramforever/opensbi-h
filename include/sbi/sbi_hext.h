@@ -16,6 +16,16 @@ extern unsigned long hext_shadow_pt_start;
 extern unsigned long hext_shadow_pt_size;
 
 struct hext_state {
+	bool virt;
+
+	unsigned long hstatus;
+	unsigned long hedeleg;
+	unsigned long hideleg;
+	unsigned long hie;
+	unsigned long hip;
+
+	unsigned long hvip;
+
 	unsigned long hgatp;
 	// TODO
 };
@@ -28,7 +38,7 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		      unsigned long *csr_val);
 int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		       unsigned long csr_val);
-int sbi_hext_insn(ulong insn, struct sbi_trap_regs *regs);
+int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs);
 
 inline bool sbi_hext_enabled()
 {

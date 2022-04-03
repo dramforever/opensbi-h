@@ -159,6 +159,23 @@ static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 	return SBI_OK;
 }
 
+static void sbi_hext_init_state(struct hext_state *hext)
+{
+	hext->virt    = 0;
+	hext->hgatp   = 0;
+	hext->hedeleg = 0;
+	hext->hideleg = 0;
+	hext->hie     = 0;
+	hext->hvip    = 0;
+
+#if __riscv_xlen == 32
+	hext->hstatus = 0;
+#else
+	// hstatus.VSXL = RV64, read-only
+	hext->hstatus = 2UL << HSTATUS_VSXL_SHIFT;
+#endif
+}
+
 int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 {
 	int rc;
@@ -187,6 +204,9 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 			return SBI_OK;
 		}
 	}
+
+	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	sbi_hext_init_state(hext);
 
 	return SBI_OK;
 }
