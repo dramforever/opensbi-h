@@ -81,13 +81,13 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			csr_val &= ~HSTATUS_VTW;
 		}
 
-		// TODO: hstatus.SPV = 0 requires mstatus.TSR
+		/* TODO: hstatus.SPV = 0 requires mstatus.TSR */
 		hext->hstatus = csr_val;
 
 		return SBI_OK;
 
 	case CSR_HGATP:
-		// VMIDLEN = 0
+		/* VMIDLEN = 0 */
 		csr_val &= ~HGATP32_VMID_MASK;
 
 		unsigned long mode = csr_val >> HGATP_MODE_SHIFT;
@@ -97,7 +97,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		    (mode == HGATP_MODE_SV39X4)) {
 			hext->hgatp = csr_val;
 		} else {
-			// Unsupported mode, do nothing
+			/* Unsupported mode, do nothing */
 		}
 
 		return SBI_OK;

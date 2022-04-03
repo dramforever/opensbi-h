@@ -188,7 +188,7 @@ static void sbi_hext_init_state(struct hext_state *hext)
 #if __riscv_xlen == 32
 	hext->hstatus = 0;
 #else
-	// hstatus.VSXL = RV64, read-only
+	/* hstatus.VSXL = RV64, read-only */
 	hext->hstatus = 2UL << HSTATUS_VSXL_SHIFT;
 #endif
 }

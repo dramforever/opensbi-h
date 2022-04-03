@@ -24,7 +24,7 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 			   __func__, insn);
 		return SBI_ENOTSUPP;
 	default:
-		// Shouldn't be possible
+		/* Shouldn't be possible */
 		return SBI_ENOTSUPP;
 	}
 }
