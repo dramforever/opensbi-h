@@ -14,6 +14,7 @@
 
 extern unsigned long hext_shadow_pt_start;
 extern unsigned long hext_shadow_pt_size;
+extern unsigned long hext_mstatus_features;
 
 struct hext_state {
 	bool virt;
