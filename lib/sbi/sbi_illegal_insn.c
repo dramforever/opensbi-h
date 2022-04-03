@@ -63,9 +63,9 @@ static int system_opcode_insn(ulong insn, struct sbi_trap_regs *regs)
 	}
 
 	if ((GET_RM(insn) & 0x3) == 0) {
-		// Not CSR instruction
+		/* Not CSR instruction */
 		if (((insn >> 28) & 0x3) == 0x2) {
-			// Hypervisor-level instruction
+			/* Hypervisor-level instruction */
 			if (sbi_hext_insn(insn, regs)) {
 				return truly_illegal_insn(insn, regs);
 			} else {
