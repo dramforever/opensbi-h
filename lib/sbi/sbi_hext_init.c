@@ -8,8 +8,12 @@
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_domain.h>
 
+#define MSTATUS_TRY_FEATURES (MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
+#define MSTATUS_NEED_FEATURES (MSTATUS_TVM | MSTATUS_TSR)
+
 unsigned long hext_shadow_pt_start;
 unsigned long hext_shadow_pt_size;
+unsigned long hext_mstatus_features;
 
 struct hext_state hart_hext_state[SBI_HARTMASK_MAX_BITS] = { 0 };
 
@@ -159,6 +163,19 @@ static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 	return SBI_OK;
 }
 
+static bool sbi_hext_mstatus_features()
+{
+	unsigned long saved_mstatus =
+		csr_read_set(CSR_MSTATUS, MSTATUS_TRY_FEATURES);
+	unsigned long new_mstatus = csr_read(CSR_MSTATUS);
+	csr_write(CSR_MSTATUS, saved_mstatus);
+
+	hext_mstatus_features = new_mstatus & MSTATUS_TRY_FEATURES;
+
+	return MSTATUS_NEED_FEATURES ==
+	       (hext_mstatus_features & MSTATUS_NEED_FEATURES);
+}
+
 static void sbi_hext_init_state(struct hext_state *hext)
 {
 	hext->virt    = 0;
@@ -184,6 +201,13 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 		if (misa_extension('H')) {
 			sbi_printf(
 				"%s: Native hypervisor extension available.\n",
+				__func__);
+			return SBI_OK;
+		}
+
+		if (!sbi_hext_mstatus_features()) {
+			sbi_printf(
+				"%s: No virtualization support in mstatus.{TVM,TW,TSR}\n",
 				__func__);
 			return SBI_OK;
 		}
