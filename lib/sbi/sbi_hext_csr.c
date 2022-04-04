@@ -55,7 +55,9 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		return SBI_OK;
 
 	case CSR_HCOUNTEREN:
-		return 0;
+		*csr_val = 0UL;
+		return SBI_OK;
+
 
 	default:
 		sbi_printf("%s: CSR read 0x%03x: Not implemented\n", __func__,
@@ -90,7 +92,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 
 	case CSR_HGATP:
 		/* VMIDLEN = 0 */
-		csr_val &= ~HGATP32_VMID_MASK;
+		csr_val &= ~HGATP_VMID_MASK;
 
 		unsigned long mode = csr_val >> HGATP_MODE_SHIFT;
 		unsigned long ppn  = csr_val & HGATP_PPN;
