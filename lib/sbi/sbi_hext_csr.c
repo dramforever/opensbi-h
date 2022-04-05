@@ -20,6 +20,15 @@
 	(HSTATUS_GVA | HSTATUS_SPV | HSTATUS_SPVP | HSTATUS_HU | \
 	 HSTATUS_VTVM | HSTATUS_VTW | HSTATUS_VTSR)
 
+/* Sanitize CSR value, assuming all fields are WARL. */
+#define sanitize_csr(csr, old_val, new_val)                     \
+	({                                                      \
+		unsigned long saved = csr_swap(csr, (old_val)); \
+		csr_write(csr, (new_val));                      \
+		unsigned long sanitized = csr_swap(csr, saved); \
+		sanitized;                                      \
+	})
+
 int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		      unsigned long *csr_val)
 {
@@ -58,12 +67,46 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		*csr_val = 0UL;
 		return SBI_OK;
 
+	case CSR_VSSTATUS:
+		*csr_val = hext->sstatus;
+		return SBI_OK;
+
+	case CSR_VSTVEC:
+		*csr_val = hext->stvec;
+		return SBI_OK;
+
+	case CSR_VSSCRATCH:
+		*csr_val = hext->sscratch;
+		return SBI_OK;
+
+	case CSR_VSEPC:
+		*csr_val = hext->sepc;
+		return SBI_OK;
+
+	case CSR_VSCAUSE:
+		*csr_val = hext->scause;
+		return SBI_OK;
+
+	case CSR_VSTVAL:
+		*csr_val = hext->stval;
+		return SBI_OK;
+
+	case CSR_VSIE:
+		*csr_val = hext->sie;
+		return SBI_OK;
+
+	case CSR_VSIP:
+		*csr_val = hext->sip;
+		return SBI_OK;
+
+	case CSR_VSATP:
+		*csr_val = hext->vsatp;
+		return SBI_OK;
 
 	default:
-		sbi_printf("%s: CSR read 0x%03x: Not implemented\n", __func__,
-			   csr_num);
-		sbi_hart_hang();
-		return SBI_ENOTSUPP;
+		sbi_panic("%s: CSR read 0x%03x: Not implemented\n", __func__,
+			  csr_num);
+		break;
 	}
 }
 
@@ -71,6 +114,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		       unsigned long csr_val)
 {
 	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	unsigned long mode, ppn;
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
 	if (!sbi_hext_enabled() || hext->virt || mpp < PRV_S)
@@ -85,8 +129,22 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			csr_val &= ~HSTATUS_VTW;
 		}
 
-		/* TODO: hstatus.SPV = 0 requires mstatus.TSR */
 		hext->hstatus = csr_val;
+
+		if (csr_val & HSTATUS_SPV) {
+			if (!(csr_read(CSR_MSTATUS) & MSTATUS_TSR)) {
+				sbi_printf("!! Enable mstatus.TSR\n");
+			}
+
+			// Next sret should go to V = 0, need to emulate this
+			csr_set(CSR_MSTATUS, MSTATUS_TSR);
+		} else {
+			if (csr_read(CSR_MSTATUS) & MSTATUS_TSR) {
+				sbi_printf("!! Disable mstatus.TSR\n");
+			}
+
+			csr_clear(CSR_MSTATUS, MSTATUS_TSR);
+		}
 
 		return SBI_OK;
 
@@ -94,8 +152,8 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		/* VMIDLEN = 0 */
 		csr_val &= ~HGATP_VMID_MASK;
 
-		unsigned long mode = csr_val >> HGATP_MODE_SHIFT;
-		unsigned long ppn  = csr_val & HGATP_PPN;
+		mode = csr_val >> HGATP_MODE_SHIFT;
+		ppn  = csr_val & HGATP_PPN;
 
 		if ((mode == HGATP_MODE_OFF && ppn == 0) ||
 		    (mode == HGATP_MODE_SV39X4)) {
@@ -127,6 +185,66 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		return SBI_OK;
 
 	case CSR_HCOUNTEREN:
+		/* FIXME: Can hcounteren be always read-only all-zeros? */
+		return SBI_OK;
+
+	case CSR_VSSTATUS:
+		hext->sstatus =
+			sanitize_csr(CSR_SSTATUS, hext->sstatus, csr_val);
+		return SBI_OK;
+
+	case CSR_VSTVEC:
+		hext->stvec = sanitize_csr(CSR_STVEC, hext->stvec, csr_val);
+		return SBI_OK;
+
+	case CSR_VSSCRATCH:
+		hext->sscratch =
+			sanitize_csr(CSR_SSCRATCH, hext->sscratch, csr_val);
+		return SBI_OK;
+
+	case CSR_VSEPC:
+		hext->sepc = sanitize_csr(CSR_SEPC, hext->sepc, csr_val);
+		return SBI_OK;
+
+	case CSR_VSCAUSE:
+		hext->scause = sanitize_csr(CSR_SCAUSE, hext->scause, csr_val);
+		return SBI_OK;
+
+	case CSR_VSTVAL:
+		hext->stval = sanitize_csr(CSR_STVAL, hext->stval, csr_val);
+		return SBI_OK;
+
+	case CSR_VSIE:
+		hext->sie = sanitize_csr(CSR_SIE, hext->sie, csr_val);
+		return SBI_OK;
+
+	case CSR_VSIP:
+		hext->sip = sanitize_csr(CSR_SIP, hext->sip, csr_val);
+		return SBI_OK;
+
+	case CSR_VSATP:
+		csr_val = sanitize_csr(CSR_SATP, hext->vsatp, csr_val);
+
+		/* ASIDLEN = 0 */
+		csr_val &= ~SATP_ASID_MASK;
+
+		mode = csr_val >> SATP_MODE_SHIFT;
+		ppn  = csr_val & SATP_PPN;
+
+		if ((mode == SATP_MODE_OFF && ppn == 0) ||
+		    (mode == SATP_MODE_SV39)) {
+			hext->satp = csr_val;
+		} else {
+			/* Unsupported mode, do nothing */
+		}
+
+		if ((hext->hgatp >> HGATP_MODE_SHIFT) != HGATP_MODE_OFF ||
+		    (hext->hstatus & HSTATUS_VTVM)) {
+			csr_set(CSR_MSTATUS, MSTATUS_TVM);
+		} else {
+			csr_clear(CSR_MSTATUS, MSTATUS_TVM);
+		}
+
 		return SBI_OK;
 
 	default:
