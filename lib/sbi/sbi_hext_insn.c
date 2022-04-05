@@ -15,29 +15,51 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 		return SBI_ENOTSUPP;
 
 	unsigned long funct3 = GET_RM(insn);
+	unsigned long prv    = (insn >> 28) & 0x3;
 
-	switch (funct3) {
-	case 0b000:
-		if (mpp < PRV_S) {
+	if (prv == 0x2) {
+		/* Hypervisor-level instruction */
+
+		switch (funct3) {
+		case 0b000:
+			if (mpp < PRV_S) {
+				return SBI_EDENIED;
+			}
+
+			/* sbi_printf("%s: 0x%08lx: TODO: hfence.*\n", __func__, insn); */
+			regs->mepc += 4;
+			return SBI_OK;
+
+		case 0b100:
+			if (mpp < PRV_S && !(hext->hstatus & HSTATUS_HU)) {
+				return SBI_EDENIED;
+			}
+
+			sbi_printf("%s: 0x%08lx: TODO: Hypervisor load/store\n",
+				   __func__, insn);
+			return SBI_ENOTSUPP;
+
+		default:
 			return SBI_ENOTSUPP;
 		}
+	} else if (prv == PRV_S) {
+		/* Supervisor-level instruction */
 
-		sbi_printf("%s: 0x%08lx: TODO: hfence.*\n", __func__, insn);
-
-		regs->mepc += 4;
-		return SBI_OK;
-
-	case 0b100:
-		if (mpp < PRV_S && !(hext->hstatus & HSTATUS_HU)) {
+		if ((insn & INSN_MASK_WFI) == INSN_MATCH_WFI) {
+			sbi_panic("%s: TODO: Trapped wfi\n", __func__);
+		} else if ((insn & INSN_MASK_SRET) == INSN_MATCH_SRET) {
+			sbi_panic("%s: TODO: Trapped sret, sepc = %016lx\n",
+				  __func__, csr_read(CSR_SEPC));
+		} else if ((insn & INSN_MASK_SFENCE_VMA) ==
+				   INSN_MATCH_SFENCE_VMA ||
+			   (insn & INSN_MASK_SINVAL_VMA) ==
+				   INSN_MATCH_SINVAL_VMA) {
+			sbi_panic("%s: TODO: Trapped sfence.vma/sinval.vma\n",
+				  __func__);
+		} else {
 			return SBI_ENOTSUPP;
 		}
-
-		sbi_printf("%s: 0x%08lx: TODO: Hypervisor load/store\n",
-			   __func__, insn);
-		return SBI_ENOTSUPP;
-
-	default:
-		/* Shouldn't be possible */
+	} else {
 		return SBI_ENOTSUPP;
 	}
 }
