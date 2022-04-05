@@ -19,6 +19,12 @@ extern unsigned long hext_mstatus_features;
 struct hext_state {
 	bool virt;
 
+	/**
+	 * HS-level CSRs
+	 *
+	 * These are only accessible in HS-mode.
+	 */
+
 	unsigned long hstatus;
 	unsigned long hedeleg;
 	unsigned long hideleg;
@@ -28,7 +34,50 @@ struct hext_state {
 	unsigned long hvip;
 
 	unsigned long hgatp;
-	// TODO
+
+	/**
+	 * Saved supervisor CSRs
+	 *
+	 * When emulating the hypervisor extension, we put the 'active' set of
+	 * supervisor CSRs into real CSRs in hardware, while the 'inactive' set
+	 * is saved here. To be more specific, given the current hart's
+	 * emulation state:
+	 *
+	 *     struct hext_state *hext = ...;
+	 *
+	 * The supervisor CSR sfoo and vsfoo are handled thus:
+	 *
+	 * - When V = 0 (i.e., hext->virt == 1):
+	 *   - HS-mode sfoo is the real CSR sfoo
+	 *   - Accessing vsfoo is trapped and redirected to hext->sfoo
+	 * - When V = 1:
+	 *   - VS-mode sfoo is the real CSR sfoo
+	 *   - HS-mode sfoo are saved in hext->sfoo
+	 */
+
+	unsigned long sstatus;
+	unsigned long stvec;
+	unsigned long sscratch;
+	unsigned long sepc;
+	unsigned long scause;
+	unsigned long stval;
+	unsigned long sie;
+	unsigned long sip;
+
+	/**
+	 * - When V = 0:
+	 *   - HS-mode satp is the real satp
+	 *   - Accessing vsatp is trapped and redirected to hext->vsatp
+	 * - When V = 1:
+	 *   - HS-mode satp is saved in hext->satp
+	 *   - If hgatp.MODE = Bare:
+	 *     - VS-mode satp is the real satp
+	 *   - If hgatp.MODE != Bare:
+	 *     - Accessing satp is trapped and redirected to hext->vsatp
+	 *     - Real satp points to a shadow page table
+	 */
+	unsigned long satp;
+	unsigned long vsatp;
 };
 
 extern struct hext_state hart_hext_state[];
