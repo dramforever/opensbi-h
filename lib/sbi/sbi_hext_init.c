@@ -198,6 +198,66 @@ static int sbi_hext_relocate(struct sbi_scratch *scratch)
 	return SBI_OK;
 }
 
+static int patch_fdt_reserve(void *fdt, unsigned long addr, unsigned long size)
+{
+	int rc;
+	int parent;
+	int na = fdt_address_cells(fdt, 0);
+	int ns = fdt_size_cells(fdt, 0);
+	fdt32_t addr_high, addr_low;
+	fdt32_t size_high, size_low;
+	int subnode;
+	fdt32_t reg[4];
+	fdt32_t *val;
+
+	rc = fdt_open_into(fdt, fdt, fdt_totalsize(fdt) + 128);
+	if (rc < 0)
+		return SBI_EFAIL;
+
+	parent = fdt_path_offset(fdt, "/reserved-memory");
+	if (parent < 0) {
+		parent = fdt_add_subnode(fdt, 0, "reserved-memory");
+		if (parent < 0)
+			return SBI_EFAIL;
+
+		rc = fdt_setprop_empty(fdt, parent, "ranges");
+		if (rc < 0)
+			return SBI_EFAIL;
+
+		rc = fdt_setprop_u32(fdt, parent, "#size-cells", ns);
+		if (rc < 0)
+			return SBI_EFAIL;
+
+		rc = fdt_setprop_u32(fdt, parent, "#address-cells", na);
+		if (rc < 0)
+			return SBI_EFAIL;
+	}
+
+	subnode = fdt_add_subnode(fdt, parent, "shadow-pt-resv");
+	if (subnode < 0)
+		return SBI_EFAIL;
+
+	addr_high = (u64)addr >> 32;
+	addr_low  = addr;
+	size_high = (u64)size >> 32;
+	size_low  = size;
+
+	/* encode the <reg> property value */
+	val = reg;
+	if (na > 1)
+		*val++ = cpu_to_fdt32(addr_high);
+	*val++ = cpu_to_fdt32(addr_low);
+	if (ns > 1)
+		*val++ = cpu_to_fdt32(size_high);
+	*val++ = cpu_to_fdt32(size_low);
+
+	rc = fdt_setprop(fdt, subnode, "reg", reg, (na + ns) * sizeof(fdt32_t));
+	if (rc < 0)
+		return SBI_EFAIL;
+
+	return SBI_OK;
+}
+
 static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 {
 	int rc;
@@ -218,7 +278,8 @@ static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 	}
 
 	sbi_domain_memregion_init(mem_end_aligned - SHADOW_PT_SPACE_SIZE,
-				  SHADOW_PT_SPACE_SIZE, 0, &region);
+				  SHADOW_PT_SPACE_SIZE,
+				  SBI_DOMAIN_MEMREGION_READABLE, &region);
 
 	rc = sbi_domain_root_add_memregion(&region);
 	if (rc) {
@@ -230,6 +291,9 @@ static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 
 	hext_shadow_pt_start = mem_end_aligned - SHADOW_PT_SPACE_SIZE;
 	hext_shadow_pt_size  = SHADOW_PT_SPACE_SIZE;
+
+	patch_fdt_reserve((void *)scratch->next_arg1, hext_shadow_pt_start,
+			  hext_shadow_pt_size);
 
 	return SBI_OK;
 }
