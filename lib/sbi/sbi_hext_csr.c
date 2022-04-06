@@ -132,18 +132,10 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		hext->hstatus = csr_val;
 
 		if (csr_val & HSTATUS_SPV) {
-			if (!(csr_read(CSR_MSTATUS) & MSTATUS_TSR)) {
-				sbi_printf("!! Enable mstatus.TSR\n");
-			}
-
 			// Next sret should go to V = 0, need to emulate this
-			csr_set(CSR_MSTATUS, MSTATUS_TSR);
+			regs->mstatus |= MSTATUS_TSR;
 		} else {
-			if (csr_read(CSR_MSTATUS) & MSTATUS_TSR) {
-				sbi_printf("!! Disable mstatus.TSR\n");
-			}
-
-			csr_clear(CSR_MSTATUS, MSTATUS_TSR);
+			regs->mstatus &= ~MSTATUS_TSR;
 		}
 
 		return SBI_OK;
@@ -240,9 +232,9 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 
 		if ((hext->hgatp >> HGATP_MODE_SHIFT) != HGATP_MODE_OFF ||
 		    (hext->hstatus & HSTATUS_VTVM)) {
-			csr_set(CSR_MSTATUS, MSTATUS_TVM);
+			regs->mstatus |= MSTATUS_TVM;
 		} else {
-			csr_clear(CSR_MSTATUS, MSTATUS_TVM);
+			regs->mstatus &= ~MSTATUS_TVM;
 		}
 
 		return SBI_OK;
