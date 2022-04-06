@@ -211,6 +211,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		return SBI_OK;
 
 	case CSR_VSIP:
+		// FIXME: Interrupts don't actually work like this
 		hext->sip = sanitize_csr(CSR_SIP, hext->sip, csr_val);
 		return SBI_OK;
 
