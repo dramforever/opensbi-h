@@ -127,6 +127,77 @@ int patch_fdt_cpu_isa(void *fdt)
 	return SBI_OK;
 }
 
+static int relocate_initrd(struct sbi_scratch *scratch,
+			   unsigned long *relocate_base)
+{
+	int chosen, len, rc;
+	void *fdt = (void *)scratch->next_arg1;
+
+	unsigned long initrd_start = 0, initrd_end = 0, initrd_new_start;
+	const char *res;
+
+	chosen = fdt_path_offset(fdt, "/chosen");
+
+	if (chosen < 0)
+		goto not_found;
+
+	res = fdt_getprop(fdt, chosen, "linux,initrd-start", &len);
+	if (!res || len > sizeof(unsigned long))
+		goto not_found;
+
+	for (int i = 0; i < len; i++)
+		initrd_start = (initrd_start << 8) | res[i];
+
+	res = fdt_getprop(fdt, chosen, "linux,initrd-end", &len);
+	if (!res || len > sizeof(unsigned long))
+		goto not_found;
+
+	for (int i = 0; i < len; i++)
+		initrd_end = (initrd_end << 8) | res[i];
+
+	if (initrd_end > *relocate_base) {
+		initrd_new_start = *relocate_base - (initrd_end - initrd_start);
+		initrd_new_start &= PAGE_MASK;
+		*relocate_base = initrd_new_start;
+
+		sbi_printf("%s: Moving initrd 0x%lx -> 0x%lx\n", __func__,
+			   initrd_start, initrd_new_start);
+
+		memmove((void *)initrd_new_start, (void *)initrd_start,
+			(initrd_end - initrd_start));
+
+		rc = fdt_open_into(fdt, fdt, fdt_totalsize(fdt) + 32);
+		if (rc < 0)
+			return SBI_EFAIL;
+
+		fdt_setprop_u64(fdt, chosen, "linux,initrd-start",
+				initrd_new_start);
+		fdt_setprop_u64(fdt, chosen, "linux,initrd-end",
+				initrd_new_start + (initrd_end - initrd_start));
+
+		return SBI_OK;
+	} else {
+		return SBI_OK;
+	}
+
+not_found:
+	return SBI_OK;
+}
+
+static int sbi_hext_relocate(struct sbi_scratch *scratch)
+{
+	int rc;
+	unsigned long relocate_base = hext_shadow_pt_start;
+
+	rc = relocate_initrd(scratch, &relocate_base);
+	if (rc)
+		return rc;
+
+	// TODO: Maybe also relocate FDT?
+
+	return SBI_OK;
+}
+
 static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 {
 	int rc;
@@ -219,6 +290,8 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 		rc = patch_fdt_cpu_isa((void *)scratch->next_arg1);
 		if (rc)
 			return rc;
+
+		sbi_hext_relocate(scratch);
 
 		sbi_printf("%s: Hypervisor extension emulation enabled.\n",
 			   __func__);
