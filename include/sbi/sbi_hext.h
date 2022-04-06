@@ -17,6 +17,8 @@ extern unsigned long hext_mstatus_features;
 struct hext_state {
 	bool virt;
 
+	unsigned long medeleg;
+
 	/**
 	 * HS-level CSRs
 	 *
@@ -87,6 +89,9 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		       unsigned long csr_val);
 int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs);
+
+void sbi_hext_switch_virt(unsigned long insn, struct sbi_trap_regs *regs,
+			  struct hext_state *hext, bool virt);
 
 inline bool sbi_hext_enabled()
 {

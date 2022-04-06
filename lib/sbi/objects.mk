@@ -52,6 +52,7 @@ libsbi-objs-y += sbi_fifo.o
 libsbi-objs-y += sbi_hart.o
 libsbi-objs-y += sbi_math.o
 libsbi-objs-y += sbi_hext_csr.o
+libsbi-objs-y += sbi_hext_switch.o
 libsbi-objs-y += sbi_hext_init.o
 libsbi-objs-y += sbi_hext_insn.o
 libsbi-objs-y += sbi_hfence.o
