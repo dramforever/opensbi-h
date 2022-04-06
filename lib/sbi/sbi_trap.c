@@ -304,6 +304,11 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		rc  = sbi_ecall_handler(regs);
 		msg = "ecall handler failed";
 		break;
+	case CAUSE_LOAD_PAGE_FAULT:
+	case CAUSE_STORE_PAGE_FAULT:
+	case CAUSE_FETCH_PAGE_FAULT:
+		sbi_panic("%s: TODO: page fault\n", __func__);
+		break;
 	case CAUSE_LOAD_ACCESS:
 	case CAUSE_STORE_ACCESS:
 		sbi_pmu_ctr_incr_fw(mcause == CAUSE_LOAD_ACCESS ?

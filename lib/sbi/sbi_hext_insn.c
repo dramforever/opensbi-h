@@ -48,8 +48,14 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 		if ((insn & INSN_MASK_WFI) == INSN_MATCH_WFI) {
 			sbi_panic("%s: TODO: Trapped wfi\n", __func__);
 		} else if ((insn & INSN_MASK_SRET) == INSN_MATCH_SRET) {
-			sbi_panic("%s: TODO: Trapped sret, sepc = %016lx\n",
-				  __func__, csr_read(CSR_SEPC));
+			if (hext->virt || !(hext->hstatus & HSTATUS_SPV)) {
+				sbi_panic("%s: Unexpected trapped sret",
+					  __func__);
+			}
+
+			sbi_hext_switch_virt(insn, regs, hext, TRUE);
+			regs->mepc = hext->sepc;
+			return SBI_OK;
 		} else if ((insn & INSN_MASK_SFENCE_VMA) ==
 				   INSN_MATCH_SFENCE_VMA ||
 			   (insn & INSN_MASK_SINVAL_VMA) ==
