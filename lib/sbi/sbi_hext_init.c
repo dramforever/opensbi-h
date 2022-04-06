@@ -8,6 +8,8 @@
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_domain.h>
 
+#define SHADOW_PT_SPACE_SIZE (2UL << 20)
+
 #define MSTATUS_TRY_FEATURES (MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 #define MSTATUS_NEED_FEATURES (MSTATUS_TVM | MSTATUS_TSR)
 

@@ -10,8 +10,6 @@
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_trap.h>
 
-#define SHADOW_PT_SPACE_SIZE (2UL << 20)
-
 extern unsigned long hext_shadow_pt_start;
 extern unsigned long hext_shadow_pt_size;
 extern unsigned long hext_mstatus_features;
