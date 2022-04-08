@@ -1,3 +1,15 @@
+OpenSBI-H: OpenSBI with Software-emulated Hypervisor Extension
+==============================================================
+
+This is a fork of [OpenSBI] that adds software-emulated hypervisor extension
+support. It is very much work-in-progress at the moment.
+
+[OpenSBI]: https://github.com/riscv-software-src/opensbi
+
+The original `README.md` follows:
+
+-------------------
+
 RISC-V Open Source Supervisor Binary Interface (OpenSBI)
 ========================================================
 
