@@ -174,7 +174,7 @@ static void sbi_boot_print_hext(struct sbi_scratch *scratch)
 		sbi_printf("Shadow PT Space Base      : 0x%lx\n",
 			   hext_shadow_pt_start);
 		sbi_printf("Shadow PT Space Size      : %lu KiB\n",
-			   hext_shadow_pt_size);
+			   hext_shadow_pt_size >> 10);
 	} else {
 		sbi_printf("Hypervisor Extension      : Not Emulated\n");
 		return;
