@@ -334,6 +334,11 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 {
 	int rc;
 
+	if (!misa_extension('S')) {
+		// No supervisor mode, no need to emulate HS
+		return SBI_OK;
+	}
+
 	if (cold_boot) {
 		if (misa_extension('H')) {
 			sbi_printf(
@@ -352,6 +357,10 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 		rc = allocate_shadow_pt_space(scratch);
 		if (rc)
 			return rc;
+
+		if (!sbi_hext_enabled()) {
+			return SBI_OK;
+		}
 
 		rc = patch_fdt_cpu_isa((void *)scratch->next_arg1);
 		if (rc)
