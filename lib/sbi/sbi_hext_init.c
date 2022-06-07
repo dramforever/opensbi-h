@@ -7,6 +7,7 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_domain.h>
+#include <sbi/sbi_string.h>
 
 #include <sbi_utils/fdt/fdt_helper.h>
 
@@ -85,6 +86,8 @@ int patch_fdt_cpu_isa(void *fdt)
 	int total_new_strings = 0;
 	const void *prop, *isa_string;
 	void *new_isa_string;
+	char *pos;
+	int append_len;
 
 	cpus_offset = fdt_path_offset(fdt, "/cpus");
 	if (cpus_offset < 0) {
@@ -93,7 +96,7 @@ int patch_fdt_cpu_isa(void *fdt)
 
 	fdt_for_each_subnode(cpu, fdt, cpus_offset) {
 		fdt_getprop(fdt, cpu, "riscv,isa", &len);
-		total_new_strings += len + sizeof(struct fdt_property) + 1;
+		total_new_strings += len + sizeof(struct fdt_property) + 2;
 	}
 
 	if (cpu < 0 && cpu != -FDT_ERR_NOTFOUND) {
@@ -113,15 +116,37 @@ int patch_fdt_cpu_isa(void *fdt)
 
 		isa_string = fdt_getprop(fdt, cpu, "riscv,isa", &len);
 
-		err = fdt_setprop_placeholder(fdt, cpu, "riscv,isa", len + 1,
+		/**
+		 * If riscv,isa has no underscore:
+		 * 	rv64imafdc -> rv64imafdch
+		 * If riscv,isa has underscore:
+		 * 	rv64imafdc_zicsr -> rv64imafdcu_zicsr_h
+		 */
+
+		pos = sbi_strchr(isa_string, '_');
+
+		if (pos)
+			append_len = 2;
+		else
+			append_len = 1;
+
+		err = fdt_setprop_placeholder(fdt, cpu, "riscv,isa",
+					      len + append_len,
 					      &new_isa_string);
 		if (err < 0) {
 			return SBI_EFAIL;
 		}
 
 		memmove(new_isa_string, isa_string, len - 1);
-		((char *)new_isa_string)[len - 1] = 'h';
-		((char *)new_isa_string)[len]	  = '\0';
+
+		if (pos) {
+			((char *)new_isa_string)[len - 1] = '_';
+			((char *)new_isa_string)[len]	  = 'h';
+			((char *)new_isa_string)[len + 1] = '\0';
+		} else {
+			((char *)new_isa_string)[len - 1] = 'h';
+			((char *)new_isa_string)[len]	  = '\0';
+		}
 	}
 
 	if (cpu < 0 && cpu != -FDT_ERR_NOTFOUND) {
