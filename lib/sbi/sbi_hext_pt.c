@@ -16,7 +16,12 @@ int sbi_hext_pt_init(pte_t *pt_start, struct pt_meta *meta_start,
 	hart_count = sbi_platform_hart_count(sbi_platform_thishart_ptr());
 
 	for (u32 index = 0; index < hart_count; index++) {
-		struct pt_area_info *pt_area = &hart_hext_state[index].pt_area;
+		struct hext_state *hext = &hart_hext_state[index];
+
+		if (!hext->available)
+			continue;
+
+		struct pt_area_info *pt_area = &hext->pt_area;
 
 		pt_area->pt_start =
 			pt_start +
