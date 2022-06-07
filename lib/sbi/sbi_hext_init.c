@@ -8,13 +8,13 @@
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_domain.h>
 
-#define SHADOW_PT_SPACE_SIZE (2UL << 20)
-
 #define MSTATUS_TRY_FEATURES (MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 #define MSTATUS_NEED_FEATURES (MSTATUS_TVM | MSTATUS_TSR)
 
-unsigned long hext_shadow_pt_start;
-unsigned long hext_shadow_pt_size;
+unsigned long *hext_pt_start;
+struct pt_meta *hext_pt_meta;
+size_t hext_pt_size;
+
 unsigned long hext_mstatus_features;
 
 struct hext_state hart_hext_state[SBI_HARTMASK_MAX_BITS] = { 0 };
@@ -189,7 +189,7 @@ not_found:
 static int sbi_hext_relocate(struct sbi_scratch *scratch)
 {
 	int rc;
-	unsigned long relocate_base = hext_shadow_pt_start;
+	unsigned long relocate_base = (unsigned long)hext_pt_meta;
 
 	rc = relocate_initrd(scratch, &relocate_base);
 	if (rc)
@@ -260,11 +260,13 @@ static int patch_fdt_reserve(void *fdt, unsigned long addr, unsigned long size)
 	return SBI_OK;
 }
 
-static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
+static int allocate_pt_space(struct sbi_scratch *scratch)
 {
 	int rc;
+	u32 hart_count;
 	unsigned long mem_start, mem_size;
 	unsigned long mem_end_aligned;
+	unsigned long alloc_size;
 	struct sbi_domain_memregion region;
 
 	rc = find_main_memory((void *)scratch->next_arg1, &mem_start,
@@ -272,15 +274,18 @@ static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 	if (rc)
 		return rc;
 
-	mem_end_aligned = (mem_start + mem_size) & ~(SHADOW_PT_SPACE_SIZE - 1);
+	mem_end_aligned = (mem_start + mem_size) & ~(PT_ALIGN - 1);
 
-	if (mem_start + SHADOW_PT_SPACE_SIZE > mem_end_aligned) {
+	hart_count = sbi_platform_hart_count(sbi_platform_thishart_ptr());
+	alloc_size = hart_count * PT_SPACE_SIZE;
+
+	/* A really conservative sanity check. Make sure we have enough memory */
+	if (mem_start + 3 * alloc_size > mem_end_aligned) {
 		sbi_printf("%s: No memory for shadow page tables.\n", __func__);
 		return SBI_OK;
 	}
 
-	sbi_domain_memregion_init(mem_end_aligned - SHADOW_PT_SPACE_SIZE,
-				  SHADOW_PT_SPACE_SIZE,
+	sbi_domain_memregion_init(mem_end_aligned - alloc_size, alloc_size,
 				  SBI_DOMAIN_MEMREGION_READABLE, &region);
 
 	rc = sbi_domain_root_add_memregion(&region);
@@ -291,11 +296,31 @@ static int allocate_shadow_pt_space(struct sbi_scratch *scratch)
 		return SBI_ENOMEM;
 	}
 
-	hext_shadow_pt_start = mem_end_aligned - SHADOW_PT_SPACE_SIZE;
-	hext_shadow_pt_size  = SHADOW_PT_SPACE_SIZE;
+	hext_pt_start = (pte_t *)region.base;
+	hext_pt_size  = (1UL << region.order) / PT_NODE_SIZE;
 
-	patch_fdt_reserve((void *)scratch->next_arg1, hext_shadow_pt_start,
-			  hext_shadow_pt_size);
+	patch_fdt_reserve((void *)scratch->next_arg1,
+			  (unsigned long)hext_pt_start, hext_pt_size);
+
+	sbi_domain_memregion_init((unsigned long)hext_pt_start -
+					  hext_pt_size * sizeof(struct pt_meta),
+				  hext_pt_size * sizeof(struct pt_meta), 0,
+				  &region);
+
+	rc = sbi_domain_root_add_memregion(&region);
+	if (rc) {
+		sbi_printf(
+			"%s: Failed to add memregion for shadow page table metadata\n",
+			__func__);
+		return SBI_ENOMEM;
+	}
+
+	hext_pt_meta = (struct pt_meta *)region.base;
+
+	rc = sbi_hext_pt_init(hext_pt_start, hext_pt_meta,
+			      hext_pt_size / hart_count);
+	if (rc)
+		return rc;
 
 	return SBI_OK;
 }
@@ -354,7 +379,7 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 			return SBI_OK;
 		}
 
-		rc = allocate_shadow_pt_space(scratch);
+		rc = allocate_pt_space(scratch);
 		if (rc)
 			return rc;
 
@@ -377,7 +402,7 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 		}
 	}
 
-	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	struct hext_state *hext = sbi_hext_current_state();
 	sbi_hext_init_state(hext);
 
 	return SBI_OK;
