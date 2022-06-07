@@ -8,6 +8,8 @@
 #include <sbi/sbi_hartmask.h>
 #include <sbi/sbi_domain.h>
 
+#include <sbi_utils/fdt/fdt_helper.h>
+
 #define MSTATUS_TRY_FEATURES (MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 #define MSTATUS_NEED_FEATURES (MSTATUS_TVM | MSTATUS_TSR)
 
@@ -260,10 +262,52 @@ static int patch_fdt_reserve(void *fdt, unsigned long addr, unsigned long size)
 	return SBI_OK;
 }
 
+static int hart_with_mmu_count(void *fdt)
+{
+	int err, cpu_offset, cpus_offset, len, count = 0;
+	const struct sbi_platform *platform = sbi_platform_thishart_ptr();
+	const char *mmu_type;
+	u32 hartid, hart_index;
+
+	err = fdt_open_into(fdt, fdt, fdt_totalsize(fdt) + 32);
+	if (err < 0)
+		return SBI_EFAIL;
+
+	cpus_offset = fdt_path_offset(fdt, "/cpus");
+	if (cpus_offset < 0)
+		return SBI_EFAIL;
+
+	fdt_for_each_subnode(cpu_offset, fdt, cpus_offset) {
+		err = fdt_parse_hart_id(fdt, cpu_offset, &hartid);
+		if (err)
+			continue;
+
+		if (!fdt_node_is_enabled(fdt, cpu_offset))
+			continue;
+
+		mmu_type = fdt_getprop(fdt, cpu_offset, "mmu-type", &len);
+		if (!mmu_type || !len)
+			continue;
+
+		hart_index = sbi_platform_hart_index(platform, hartid);
+		if (hart_index == -1u)
+			continue;
+
+		count++;
+
+		hart_hext_state[hart_index].available = TRUE;
+	}
+
+	if ((cpu_offset < 0) && (cpu_offset != -FDT_ERR_NOTFOUND))
+		return SBI_EFAIL;
+
+	return count;
+}
+
 static int allocate_pt_space(struct sbi_scratch *scratch)
 {
 	int rc;
-	u32 hart_count;
+	int hart_count;
 	unsigned long mem_start, mem_size;
 	unsigned long mem_end_aligned;
 	unsigned long alloc_size;
@@ -276,7 +320,11 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 
 	mem_end_aligned = (mem_start + mem_size) & ~(PT_ALIGN - 1);
 
-	hart_count = sbi_platform_hart_count(sbi_platform_thishart_ptr());
+	hart_count = hart_with_mmu_count(sbi_scratch_thishart_arg1_ptr());
+
+	if (hart_count < 0)
+		return hart_count;
+
 	alloc_size = hart_count * PT_SPACE_SIZE;
 
 	/* A really conservative sanity check. Make sure we have enough memory */
@@ -319,6 +367,7 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 
 	rc = sbi_hext_pt_init(hext_pt_start, hext_pt_meta,
 			      hext_pt_size / hart_count);
+
 	if (rc)
 		return rc;
 

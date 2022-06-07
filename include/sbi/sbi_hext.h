@@ -108,6 +108,7 @@ struct hext_state {
 	unsigned long vsatp;
 
 	bool virt;
+	bool available;
 };
 
 extern struct hext_state hart_hext_state[];
