@@ -6,9 +6,10 @@
 #include <sbi/sbi_console.h>
 #include <sbi/riscv_encoding.h>
 
-#define MEDELEG_MASK                                                      \
-	((1U << CAUSE_LOAD_PAGE_FAULT) | (1U << CAUSE_STORE_PAGE_FAULT) | \
-	 (1U << CAUSE_FETCH_PAGE_FAULT) | ~(1U << CAUSE_ILLEGAL_INSTRUCTION))
+#define HEDELEG_MASK                                                          \
+	((1U << CAUSE_LOAD_PAGE_FAULT) | (1U << CAUSE_STORE_PAGE_FAULT) |     \
+	 (1U << CAUSE_FETCH_PAGE_FAULT) | (1U << CAUSE_ILLEGAL_INSTRUCTION) | \
+	 (1U << CAUSE_SUPERVISOR_ECALL))
 
 void sbi_hext_switch_virt(unsigned long insn, struct sbi_trap_regs *regs,
 			  struct hext_state *hext, bool virt)
@@ -37,16 +38,16 @@ void sbi_hext_switch_virt(unsigned long insn, struct sbi_trap_regs *regs,
 		// FIXME: Interrupts don't actually work like this
 		hext->sip = csr_swap(CSR_SIP, hext->sip);
 
-		// TODO: Set satp to shadow page table
-		hext->satp = csr_swap(CSR_SATP,
-				      (SATP_MODE_SV39 << SATP_MODE_SHIFT) |
-					      (hext_shadow_pt_start >> 12));
+		hext->satp = csr_swap(
+			CSR_SATP,
+			(SATP_MODE_SV39 << SATP_MODE_SHIFT) |
+				((unsigned long)hext->pt_area.pt_start >> 12));
 		__asm__ __volatile__("sfence.vma");
 
 		csr_clear(CSR_MIDELEG, MIP_SSIP | MIP_STIP | MIP_SEIP);
 
 		hext->medeleg = csr_read_clear(
-			CSR_MEDELEG, ~(hext->hedeleg & ~MEDELEG_MASK));
+			CSR_MEDELEG, ~(hext->hedeleg & ~HEDELEG_MASK));
 	} else {
 		sbi_panic("%s: TODO: VM exit", __func__);
 	}

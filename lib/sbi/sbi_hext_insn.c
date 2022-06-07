@@ -8,7 +8,7 @@
 
 int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 {
-	struct hext_state *hext = &hart_hext_state[current_hartid()];
+	struct hext_state *hext = sbi_hext_current_state();
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
 	if (!sbi_hext_enabled() || hext->virt)
