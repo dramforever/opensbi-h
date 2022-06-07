@@ -288,7 +288,10 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 
 	switch (mcause) {
 	case CAUSE_ILLEGAL_INSTRUCTION:
-		rc  = sbi_illegal_insn_handler(mtval, regs);
+		/* rc  = sbi_illegal_insn_handler(mtval, regs); */
+		/* QEMU 7.0.0 would sometimes give an incorrect mtval for
+		 * illegal instructions. Ignore it. */
+		rc  = sbi_illegal_insn_handler(0ul, regs);
 		msg = "illegal instruction handler failed";
 		break;
 	case CAUSE_MISALIGNED_LOAD:
