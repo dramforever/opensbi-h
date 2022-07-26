@@ -21,6 +21,7 @@
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
+#include <sbi/sbi_hext.h>
 
 static void __noreturn sbi_trap_error(const char *msg, int rc,
 				      ulong mcause, ulong mtval, ulong mtval2,
@@ -85,12 +86,21 @@ static void __noreturn sbi_trap_error(const char *msg, int rc,
 int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		      struct sbi_trap_info *trap)
 {
-	ulong hstatus, vsstatus, prev_mode;
+	struct hext_state *hext = sbi_hext_current_state();
+
+	ulong hstatus, vsstatus, hedeleg, prev_mode;
+	bool prev_virt;
+
+	if (misa_extension('H')) {
 #if __riscv_xlen == 32
-	bool prev_virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
+		prev_virt = (regs->mstatusH & MSTATUSH_MPV) ? TRUE : FALSE;
 #else
-	bool prev_virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
+		prev_virt = (regs->mstatus & MSTATUS_MPV) ? TRUE : FALSE;
 #endif
+	} else {
+		prev_virt = hext->available && hext->virt;
+	}
+
 	/* By default, we redirect to HS-mode */
 	bool next_virt = FALSE;
 
@@ -102,14 +112,21 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 	/* If exceptions came from VS/VU-mode, redirect to VS-mode if
 	 * delegated in hedeleg
 	 */
-	if (misa_extension('H') && prev_virt) {
+	if (prev_virt) {
+		if (misa_extension('H')) {
+			hedeleg = csr_read(CSR_HEDELEG);
+		} else {
+			hedeleg = hext->hedeleg;
+		}
+
 		if ((trap->cause < __riscv_xlen) &&
-		    (csr_read(CSR_HEDELEG) & BIT(trap->cause))) {
+		    (hedeleg & BIT(trap->cause))) {
 			next_virt = TRUE;
 		}
 	}
 
 	/* Update MSTATUS MPV bits */
+	if (misa_extension('H')) {
 #if __riscv_xlen == 32
 	regs->mstatusH &= ~MSTATUSH_MPV;
 	regs->mstatusH |= (next_virt) ? MSTATUSH_MPV : 0UL;
@@ -117,36 +134,60 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 	regs->mstatus &= ~MSTATUS_MPV;
 	regs->mstatus |= (next_virt) ? MSTATUS_MPV : 0UL;
 #endif
+	} else {
+		sbi_hext_switch_virt(regs, hext, next_virt);
+		/* V bit is updated now */
+	}
 
 	/* Update HSTATUS for VS/VU-mode to HS-mode transition */
-	if (misa_extension('H') && prev_virt && !next_virt) {
+	if (prev_virt && !next_virt) {
 		/* Update HSTATUS SPVP and SPV bits */
-		hstatus = csr_read(CSR_HSTATUS);
+		if (misa_extension('H'))
+			hstatus = csr_read(CSR_HSTATUS);
+		else
+			hstatus = hext->hstatus;
 		hstatus &= ~HSTATUS_SPVP;
 		hstatus |= (prev_mode == PRV_S) ? HSTATUS_SPVP : 0;
 		hstatus &= ~HSTATUS_SPV;
 		hstatus |= (prev_virt) ? HSTATUS_SPV : 0;
-		csr_write(CSR_HSTATUS, hstatus);
-		csr_write(CSR_HTVAL, trap->tval2);
-		csr_write(CSR_HTINST, trap->tinst);
+
+		if (misa_extension('H')) {
+			csr_write(CSR_HSTATUS, hstatus);
+			csr_write(CSR_HTVAL, trap->tval2);
+			csr_write(CSR_HTINST, trap->tinst);
+		} else {
+			hext->hstatus = hstatus;
+			hext->htval   = trap->tval2;
+			hext->htinst  = trap->tinst;
+		}
 	}
 
 	/* Update exception related CSRs */
 	if (next_virt) {
-		/* Update VS-mode exception info */
-		csr_write(CSR_VSTVAL, trap->tval);
-		csr_write(CSR_VSEPC, trap->epc);
-		csr_write(CSR_VSCAUSE, trap->cause);
+		if (misa_extension('H')) {
+			/* Update VS-mode exception info */
+			csr_write(CSR_VSTVAL, trap->tval);
+			csr_write(CSR_VSEPC, trap->epc);
+			csr_write(CSR_VSCAUSE, trap->cause);
 
-		/* Set MEPC to VS-mode exception vector base */
-		regs->mepc = csr_read(CSR_VSTVEC);
+			/* Set MEPC to VS-mode exception vector base */
+			regs->mepc = csr_read(CSR_VSTVEC);
+		} else {
+			csr_write(CSR_STVAL, trap->tval);
+			csr_write(CSR_SEPC, trap->epc);
+			csr_write(CSR_SCAUSE, trap->cause);
+			regs->mepc = csr_read(CSR_STVEC);
+		}
 
 		/* Set MPP to VS-mode */
 		regs->mstatus &= ~MSTATUS_MPP;
 		regs->mstatus |= (PRV_S << MSTATUS_MPP_SHIFT);
 
 		/* Get VS-mode SSTATUS CSR */
-		vsstatus = csr_read(CSR_VSSTATUS);
+		if (misa_extension('H'))
+			vsstatus = csr_read(CSR_VSSTATUS);
+		else
+			vsstatus = csr_read(CSR_SSTATUS);
 
 		/* Set SPP for VS-mode */
 		vsstatus &= ~SSTATUS_SPP;
@@ -162,7 +203,10 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs,
 		vsstatus &= ~SSTATUS_SIE;
 
 		/* Update VS-mode SSTATUS CSR */
-		csr_write(CSR_VSSTATUS, vsstatus);
+		if (misa_extension('H'))
+			csr_write(CSR_VSSTATUS, vsstatus);
+		else
+			csr_write(CSR_SSTATUS, vsstatus);
 	} else {
 		/* Update S-mode exception info */
 		csr_write(CSR_STVAL, trap->tval);
