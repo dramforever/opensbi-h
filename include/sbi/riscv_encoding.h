@@ -767,6 +767,34 @@
 #define SMSTATEEN_STATEN_SHIFT		63
 #define SMSTATEEN_STATEN		(_ULL(1) << SMSTATEEN_STATEN_SHIFT)
 
+/* ===== Page Table Entry Encoding ===== */
+
+#define PTE_V				(1 << 0)
+#define PTE_R				(1 << 1)
+#define PTE_W				(1 << 2)
+#define PTE_X				(1 << 3)
+#define PTE_U				(1 << 4)
+#define PTE_G				(1 << 5)
+#define PTE_A				(1 << 6)
+#define PTE_D				(1 << 7)
+
+#define PTE_RSW_SHIFT			8
+#define PTE_RSW_MASK			0x3
+
+#define PTE_PPN_SHIFT 			10
+#define PTE64_PPN_MASK 			((_ULL(0x1) << 44) - 1)
+#define PTE32_PPN_MASK			((1 << 22) - 1)
+
+#define PTE64_RESERVED_SHIFT		54
+
+#if __riscv_xlen == 64
+# define PTE_PPN_MASK			PTE64_PPN_MASK
+#elif __riscv_xlen == 32
+# define PTE_PPN_MASK			PTE32_PPN_MASK
+#else
+# error "Unexpected __riscv_xlen"
+#endif
+
 /* ===== Instruction Encodings ===== */
 
 #define INSN_MATCH_LB			0x3
