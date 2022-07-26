@@ -43,6 +43,14 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		*csr_val = hext->hstatus;
 		return SBI_OK;
 
+	case CSR_HTVAL:
+		*csr_val = hext->htval;
+		return SBI_OK;
+
+	case CSR_HTINST:
+		*csr_val = hext->htinst;
+		return SBI_OK;
+
 	case CSR_HEDELEG:
 		*csr_val = hext->hedeleg;
 		return SBI_OK;
@@ -138,6 +146,14 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			regs->mstatus &= ~MSTATUS_TSR;
 		}
 
+		return SBI_OK;
+
+	case CSR_HTVAL:
+		hext->htval = csr_val;
+		return SBI_OK;
+
+	case CSR_HTINST:
+		hext->htinst = csr_val;
 		return SBI_OK;
 
 	case CSR_HGATP:

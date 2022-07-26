@@ -54,6 +54,8 @@ struct hext_state {
 	 */
 
 	unsigned long hstatus;
+	unsigned long htval;
+	unsigned long htinst;
 	unsigned long hedeleg;
 	unsigned long hideleg;
 	unsigned long hie;
