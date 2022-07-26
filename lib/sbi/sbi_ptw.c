@@ -78,7 +78,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 {
 	int num_levels = 0, va_bits = 0;
 	int level, shift;
-	sbi_addr_t node, addr_part, mask;
+	sbi_addr_t node, addr_part, mask, ppn;
 	sbi_pte_t pte;
 
 	while (mode->parts[num_levels]) {
@@ -87,12 +87,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 	}
 
 	if (!addr_valid(addr, mode, va_bits)) {
-		trap->cause = CAUSE_LOAD_PAGE_FAULT;
-		trap->tinst = 0;
-		trap->tval  = 0;
-		trap->tval2 = 0;
-
-		return SBI_EINVAL;
+		goto invalid;
 	}
 
 	shift = va_bits;
@@ -103,7 +98,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		mask	  = (1UL << mode->parts[level]) - 1;
 		addr_part = (addr >> shift) & mask;
 
-		sbi_printf("%s: load pte 0x%lx\n", __func__,
+		sbi_printf("%s: level %d load pte 0x%llx\n", __func__, level,
 			   node + addr_part * sizeof(sbi_pte_t));
 
 		pte = mode->load_pte(node + addr_part * sizeof(sbi_pte_t), csr,
@@ -119,18 +114,39 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 
 		if ((pte & 1) != 1) {
 			sbi_printf("%s: pte not valid\n", __func__);
-			trap->cause = CAUSE_LOAD_PAGE_FAULT;
-			trap->tinst = 0;
-			trap->tval  = 0;
-			trap->tval2 = 0;
-
-			return SBI_EINVAL;
+			goto invalid;
 		}
 
-		sbi_panic("%s: todo", __func__);
+		ppn = ((pte >> PTE_PPN_SHIFT) & PTE_PPN_MASK);
+
+		if (level != 1 && (pte & (PTE_R | PTE_W | PTE_X))) {
+			sbi_printf(
+				"%s: leaf pte ppn 0x%llx (pa 0x%llx) at level %d, shift = %d, va_bits = %d\n",
+				__func__, ppn, ppn << PAGE_SHIFT, level, shift,
+				va_bits);
+
+			if (ppn & ((1 << (shift - PAGE_SHIFT)) - 1))
+				goto invalid;
+
+			out->base     = ppn << PAGE_SHIFT;
+			out->len      = 1UL << shift;
+			out->leaf_pte = pte;
+
+			return SBI_OK;
+		}
+
+		node = ppn << PAGE_SHIFT;
 	}
 
-	sbi_panic("dunno");
+	sbi_printf("%s: no leaf found\n", __func__);
+
+invalid:
+	trap->cause = CAUSE_LOAD_PAGE_FAULT;
+	trap->tinst = 0;
+	trap->tval  = 0;
+	trap->tval2 = 0;
+
+	return SBI_EINVAL;
 }
 
 static ulong convert_pf_to_gpf(ulong cause)
@@ -151,17 +167,28 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		      struct sbi_ptw_out *out, struct sbi_trap_info *trap)
 {
 	int ret;
+	sbi_addr_t gpa, pa;
+
 	if (csr->vsatp >> SATP_MODE_SHIFT != SATP_MODE_OFF) {
 		sbi_panic("not bare");
 	}
+
+	gpa = gva;
 
 	if (csr->hgatp >> HGATP_MODE_SHIFT != HGATP_MODE_SV39X4) {
 		sbi_panic("not sv39x4");
 	}
 
-	ret = sbi_pt_walk(gva, (csr->hgatp & HGATP_PPN) << PAGE_SHIFT, csr,
+	ret = sbi_pt_walk(gpa, (csr->hgatp & HGATP_PPN) << PAGE_SHIFT, csr,
 			  &sbi_ptw_sv39x4, out, trap);
 
-	trap->cause = convert_pf_to_gpf(trap->cause);
-	return ret;
+	if (ret) {
+		trap->cause = convert_pf_to_gpf(trap->cause);
+		return ret;
+	}
+
+	pa = out->base + (gpa & (out->len - 1));
+
+	sbi_printf("%s: gpa 0x%llx -> pa 0x%llx\n", __func__, gpa, pa);
+	sbi_panic("todo");
 }
