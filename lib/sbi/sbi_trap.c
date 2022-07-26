@@ -23,6 +23,7 @@
 #include <sbi/sbi_timer.h>
 #include <sbi/sbi_trap.h>
 #include <sbi/sbi_hext.h>
+#include <sbi/sbi_page_fault.h>
 
 static void __noreturn sbi_trap_error(const char *msg, int rc, ulong mcause,
 				      ulong mtval, ulong mtval2, ulong mtinst,
@@ -354,7 +355,8 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 	case CAUSE_LOAD_PAGE_FAULT:
 	case CAUSE_STORE_PAGE_FAULT:
 	case CAUSE_FETCH_PAGE_FAULT:
-		sbi_panic("%s: TODO: page fault\n", __func__);
+		rc  = sbi_page_fault_handler(mtval, regs);
+		msg = "page fault handler failed";
 		break;
 	case CAUSE_LOAD_ACCESS:
 	case CAUSE_STORE_ACCESS:
