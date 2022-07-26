@@ -355,7 +355,7 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 	case CAUSE_LOAD_PAGE_FAULT:
 	case CAUSE_STORE_PAGE_FAULT:
 	case CAUSE_FETCH_PAGE_FAULT:
-		rc  = sbi_page_fault_handler(mtval, regs);
+		rc  = sbi_page_fault_handler(mtval, mcause, regs);
 		msg = "page fault handler failed";
 		break;
 	case CAUSE_LOAD_ACCESS:
