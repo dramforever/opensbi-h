@@ -6,7 +6,37 @@
 #include <sbi/sbi_hext.h>
 #include <sbi/sbi_console.h>
 
-int sbi_page_fault_handler(ulong tval, struct sbi_trap_regs *regs)
+static inline ulong convert_access_type(ulong cause, ulong orig_cause)
+{
+	switch (cause) {
+
+#define access_type_case(ty)                     \
+	case CAUSE_FETCH_##ty:                   \
+	case CAUSE_LOAD_##ty:                    \
+	case CAUSE_STORE_##ty:                   \
+		switch (orig_cause) {            \
+		case CAUSE_LOAD_PAGE_FAULT:      \
+			return CAUSE_LOAD_##ty;  \
+		case CAUSE_STORE_PAGE_FAULT:     \
+			return CAUSE_STORE_##ty; \
+		case CAUSE_FETCH_PAGE_FAULT:     \
+			return CAUSE_FETCH_##ty; \
+		default:                         \
+			return cause;            \
+		}
+
+		access_type_case(ACCESS);
+		access_type_case(PAGE_FAULT);
+		access_type_case(GUEST_PAGE_FAULT);
+
+	default:
+		return cause;
+
+#undef access_type_case
+	}
+}
+
+int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 {
 	int ret;
 	struct hext_state *hext = sbi_hext_current_state();
@@ -17,6 +47,7 @@ int sbi_page_fault_handler(ulong tval, struct sbi_trap_regs *regs)
 	ret = sbi_ptw_translate(tval, &csr, &out, &trap);
 	if (ret) {
 		sbi_printf("%s: redirecting page fault\n", __func__);
+		trap.cause = convert_access_type(trap.cause, cause);
 		return sbi_trap_redirect(regs, &trap);
 	}
 

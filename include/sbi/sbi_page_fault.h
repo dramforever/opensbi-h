@@ -5,6 +5,6 @@
 
 struct sbi_trap_regs;
 
-int sbi_page_fault_handler(ulong tval, struct sbi_trap_regs *regs);
+int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs);
 
 #endif
