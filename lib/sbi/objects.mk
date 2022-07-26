@@ -65,6 +65,7 @@ libsbi-objs-y += sbi_irqchip.o
 libsbi-objs-y += sbi_misaligned_ldst.o
 libsbi-objs-y += sbi_platform.o
 libsbi-objs-y += sbi_pmu.o
+libsbi-objs-y += sbi_ptw.o
 libsbi-objs-y += sbi_scratch.o
 libsbi-objs-y += sbi_string.o
 libsbi-objs-y += sbi_system.o
