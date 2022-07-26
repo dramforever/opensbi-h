@@ -53,7 +53,7 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 					  __func__);
 			}
 
-			sbi_hext_switch_virt(insn, regs, hext, TRUE);
+			sbi_hext_switch_virt(regs, hext, TRUE);
 			regs->mepc = hext->sepc;
 			return SBI_OK;
 		} else if ((insn & INSN_MASK_SFENCE_VMA) ==

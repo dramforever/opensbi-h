@@ -11,8 +11,8 @@
 	 (1U << CAUSE_FETCH_PAGE_FAULT) | (1U << CAUSE_ILLEGAL_INSTRUCTION) | \
 	 (1U << CAUSE_SUPERVISOR_ECALL))
 
-void sbi_hext_switch_virt(unsigned long insn, struct sbi_trap_regs *regs,
-			  struct hext_state *hext, bool virt)
+void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
+			  bool virt)
 {
 	bool tvm, tw, tsr;
 
@@ -49,7 +49,27 @@ void sbi_hext_switch_virt(unsigned long insn, struct sbi_trap_regs *regs,
 		hext->medeleg = csr_read_clear(
 			CSR_MEDELEG, ~(hext->hedeleg & ~HEDELEG_MASK));
 	} else {
-		sbi_panic("%s: TODO: VM exit", __func__);
+		tvm = false;
+		tw  = false;
+		tsr = false;
+
+		hext->sstatus  = csr_swap(CSR_SSTATUS, hext->sstatus);
+		hext->stvec    = csr_swap(CSR_STVEC, hext->stvec);
+		hext->sscratch = csr_swap(CSR_SSCRATCH, hext->sscratch);
+		hext->sepc     = csr_swap(CSR_SEPC, hext->sepc);
+		hext->scause   = csr_swap(CSR_SCAUSE, hext->scause);
+		hext->stval    = csr_swap(CSR_STVAL, hext->stval);
+		hext->sie      = csr_swap(CSR_SIE, hext->sie);
+
+		// FIXME: Interrupts don't actually work like this
+		hext->sip = csr_swap(CSR_SIP, hext->sip);
+
+		csr_write(CSR_SATP, hext->satp);
+		__asm__ __volatile__("sfence.vma");
+
+		csr_set(CSR_MIDELEG, MIP_SSIP | MIP_STIP | MIP_SEIP);
+
+		csr_write(CSR_MEDELEG, hext->medeleg);
 	}
 
 	if (tvm)
