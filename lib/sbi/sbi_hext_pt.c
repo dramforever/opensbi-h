@@ -8,7 +8,7 @@
 #include <sbi/riscv_locks.h>
 #include <sbi/riscv_asm.h>
 
-int sbi_hext_pt_init(pte_t *pt_start, struct pt_meta *meta_start,
+int sbi_hext_pt_init(sbi_pte_t *pt_start, struct pt_meta *meta_start,
 		     unsigned long nodes_per_hart)
 {
 	u32 hart_count;
@@ -24,8 +24,8 @@ int sbi_hext_pt_init(pte_t *pt_start, struct pt_meta *meta_start,
 		struct pt_area_info *pt_area = &hext->pt_area;
 
 		pt_area->pt_start =
-			pt_start +
-			index * nodes_per_hart * (PT_NODE_SIZE / sizeof(pte_t));
+			pt_start + index * nodes_per_hart *
+					   (PT_NODE_SIZE / sizeof(sbi_pte_t));
 
 		pt_area->meta_start = meta_start + (index * nodes_per_hart);
 

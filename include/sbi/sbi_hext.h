@@ -16,10 +16,10 @@
 #define PT_ALIGN PT_ROOT_SIZE
 #define PT_SPACE_SIZE (4UL << 20)
 
-typedef unsigned long pte_t;
+typedef unsigned long sbi_pte_t;
 
 struct pt_meta {
-	pte_t *parent;
+	sbi_pte_t *parent;
 	unsigned long lru_next;
 	unsigned long lru_prev;
 	uint32_t filled;
@@ -27,17 +27,17 @@ struct pt_meta {
 };
 
 struct pt_area_info {
-	pte_t *pt_start;
+	sbi_pte_t *pt_start;
 	struct pt_meta *meta_start;
 	unsigned long alloc_top;
 	unsigned long alloc_limit;
 };
 
-extern pte_t *hext_pt_start;
+extern sbi_pte_t *hext_pt_start;
 extern struct pt_meta *hext_pt_meta;
 extern size_t hext_pt_size;
 
-int sbi_hext_pt_init(pte_t *pt_start, struct pt_meta *meta_start,
+int sbi_hext_pt_init(sbi_pte_t *pt_start, struct pt_meta *meta_start,
 		     unsigned long nodes_per_hart);
 
 extern unsigned long hext_mstatus_features;
