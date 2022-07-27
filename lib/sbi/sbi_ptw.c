@@ -3,6 +3,7 @@
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_unpriv.h>
 #include <sbi/sbi_hart.h>
+#include <sbi/sbi_domain.h>
 #include <sbi/riscv_encoding.h>
 #include <sbi/riscv_asm.h>
 
@@ -27,8 +28,7 @@ static struct sbi_ptw_mode sbi_ptw_sv39 = { .load_pte	 = sbi_load_pte_gpa,
 					    .addr_signed = true,
 					    .parts	 = { 12, 9, 9, 9, 0 } };
 
-static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
-				 struct sbi_trap_info *trap)
+static sbi_pte_t sbi_load_ulong_pa(sbi_addr_t addr, struct sbi_trap_info *trap)
 {
 	register ulong tinfo asm("a3");
 
@@ -50,6 +50,23 @@ static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
 		: [addr] "m"(*(sbi_pte_t *)addr), [taddr] "r"((ulong)trap)
 		: "a4", "memory");
 	return ret;
+}
+
+static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
+				 struct sbi_trap_info *trap)
+{
+	struct sbi_domain *dom = sbi_domain_thishart_ptr();
+
+	if (!sbi_domain_check_addr(dom, addr, PRV_S, SBI_DOMAIN_READ)) {
+		/* This load would fail a PMP check */
+		trap->cause = CAUSE_LOAD_ACCESS;
+		trap->tval  = 0;
+		trap->tval2 = 0;
+		trap->tinst = 0;
+		return 0;
+	}
+
+	return sbi_load_ulong_pa(addr, trap);
 }
 
 static sbi_pte_t sbi_load_pte_gpa(sbi_addr_t addr,
@@ -98,7 +115,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		mask	  = (1UL << mode->parts[level]) - 1;
 		addr_part = (addr >> shift) & mask;
 
-		sbi_printf("%s: level %d load pte 0x%llx\n", __func__, level,
+		sbi_printf("%s: level %d load pte 0x%lx\n", __func__, level,
 			   node + addr_part * sizeof(sbi_pte_t));
 
 		pte = mode->load_pte(node + addr_part * sizeof(sbi_pte_t), csr,
@@ -121,7 +138,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 
 		if (level != 1 && (pte & (PTE_R | PTE_W | PTE_X))) {
 			sbi_printf(
-				"%s: leaf pte ppn 0x%llx (pa 0x%llx) at level %d, shift = %d, va_bits = %d\n",
+				"%s: leaf pte ppn 0x%lx (pa 0x%lx) at level %d, shift = %d, va_bits = %d\n",
 				__func__, ppn, ppn << PAGE_SHIFT, level, shift,
 				va_bits);
 
@@ -189,6 +206,6 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 
 	pa = out->base + (gpa & (out->len - 1));
 
-	sbi_printf("%s: gpa 0x%llx -> pa 0x%llx\n", __func__, gpa, pa);
+	sbi_printf("%s: gpa 0x%lx -> pa 0x%lx\n", __func__, gpa, pa);
 	sbi_panic("todo");
 }
