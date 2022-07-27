@@ -115,8 +115,9 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		mask	  = (1UL << mode->parts[level]) - 1;
 		addr_part = (addr >> shift) & mask;
 
-		sbi_printf("%s: level %d load pte 0x%lx\n", __func__, level,
-			   node + addr_part * sizeof(sbi_pte_t));
+		sbi_printf("%s: level %d load pte 0x%llx\n", __func__, level,
+			   (unsigned long long)(node +
+						addr_part * sizeof(sbi_pte_t)));
 
 		pte = mode->load_pte(node + addr_part * sizeof(sbi_pte_t), csr,
 				     trap);
@@ -138,7 +139,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 
 		if (level != 1 && (pte & (PTE_R | PTE_W | PTE_X))) {
 			sbi_printf(
-				"%s: leaf pte ppn 0x%lx (pa 0x%lx) at level %d, shift = %d, va_bits = %d\n",
+				"%s: leaf pte ppn 0x%llx (pa 0x%llx) at level %d, shift = %d, va_bits = %d\n",
 				__func__, ppn, ppn << PAGE_SHIFT, level, shift,
 				va_bits);
 
@@ -206,6 +207,6 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 
 	pa = out->base + (gpa & (out->len - 1));
 
-	sbi_printf("%s: gpa 0x%lx -> pa 0x%lx\n", __func__, gpa, pa);
+	sbi_printf("%s: gpa 0x%llx -> pa 0x%llx\n", __func__, gpa, pa);
 	sbi_panic("todo");
 }

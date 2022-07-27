@@ -9,7 +9,7 @@
 #include <sbi/sbi_trap.h>
 
 typedef unsigned long sbi_pte_t;
-typedef uint64_t sbi_addr_t;
+typedef unsigned long long sbi_addr_t;
 
 struct sbi_ptw_csr {
 	unsigned long vsatp;
