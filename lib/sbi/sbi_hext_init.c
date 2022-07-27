@@ -369,7 +369,7 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 		return SBI_ENOMEM;
 	}
 
-	hext_pt_start = (pte_t *)region.base;
+	hext_pt_start = (sbi_pte_t *)region.base;
 	hext_pt_size  = (1UL << region.order) / PT_NODE_SIZE;
 
 	patch_fdt_reserve((void *)scratch->next_arg1,
