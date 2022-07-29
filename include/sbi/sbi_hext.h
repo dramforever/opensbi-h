@@ -12,35 +12,17 @@
 #include <sbi/sbi_trap.h>
 
 #define PT_NODE_SIZE (1UL << 12)
-#define PT_ROOT_SIZE (1UL << 14)
-#define PT_ALIGN PT_ROOT_SIZE
+#define PT_ALIGN PT_NODE_SIZE
 #define PT_SPACE_SIZE (4UL << 20)
 
 typedef unsigned long sbi_pte_t;
 
-struct pt_meta {
-	sbi_pte_t *parent;
-	unsigned long lru_next;
-	unsigned long lru_prev;
-	uint32_t filled;
-	uint32_t children;
-};
-
 struct pt_area_info {
-	sbi_pte_t *pt_start;
-	struct pt_meta *meta_start;
+	unsigned long pt_start;
 	unsigned long alloc_top;
 	unsigned long alloc_limit;
+	unsigned long free_list;
 };
-
-extern sbi_pte_t *hext_pt_start;
-extern struct pt_meta *hext_pt_meta;
-extern size_t hext_pt_size;
-
-int sbi_hext_pt_init(sbi_pte_t *pt_start, struct pt_meta *meta_start,
-		     unsigned long nodes_per_hart);
-
-extern unsigned long hext_mstatus_features;
 
 struct hext_state {
 	struct pt_area_info pt_area;
@@ -113,7 +95,10 @@ struct hext_state {
 	bool available;
 };
 
+extern unsigned long hext_mstatus_features;
 extern struct hext_state hart_hext_state[];
+extern unsigned long hext_pt_start;
+extern unsigned long hext_pt_size;
 
 int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot);
 
@@ -137,5 +122,14 @@ inline struct hext_state *sbi_hext_current_state()
 	u32 index = sbi_platform_hart_index(platform, current_hartid());
 	return &hart_hext_state[index];
 }
+
+int sbi_hext_pt_init(unsigned long pt_start, unsigned long nodes_per_hart);
+
+void sbi_hext_pt_alloc(struct pt_area_info *pt_area, size_t num,
+		       unsigned long *addrs);
+void sbi_hext_pt_dealloc(struct pt_area_info *pt_area, size_t num,
+			 const unsigned long *addrs);
+
+void sbi_hext_pt_flush_all(struct pt_area_info *pt_area);
 
 #endif
