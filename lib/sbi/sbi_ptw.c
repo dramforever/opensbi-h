@@ -34,33 +34,11 @@ static struct sbi_ptw_mode sbi_ptw_sv39 = { .load_pte	 = sbi_load_pte_gpa,
 					    .addr_signed = true,
 					    .parts	 = { 12, 9, 9, 9, 0 } };
 
-static sbi_pte_t sbi_load_ulong_pa(sbi_addr_t addr, struct sbi_trap_info *trap)
-{
-	register ulong tinfo asm("a3");
-
-	register ulong mtvec = sbi_hart_expected_trap_addr();
-	sbi_pte_t ret	     = 0;
-	trap->cause	     = 0;
-
-	asm volatile(
-		/* clang-format off */
-		"add %[tinfo], %[taddr], zero\n"
-		"csrrw %[mtvec], " STR(CSR_MTVEC) ", %[mtvec]\n"
-		".option push\n"
-		".option norvc\n"
-		REG_L " %[ret], %[addr]\n"
-		".option pop\n"
-		"csrw " STR(CSR_MTVEC) ", %[mtvec]"
-		/* clang-format on */
-		: [mtvec] "+&r"(mtvec), [tinfo] "+&r"(tinfo), [ret] "=&r"(ret)
-		: [addr] "m"(*(sbi_pte_t *)addr), [taddr] "r"((ulong)trap)
-		: "a4", "memory");
-	return ret;
-}
-
 static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
 				 struct sbi_trap_info *trap)
 {
+	sbi_pte_t res;
+	unsigned long mstatus;
 	struct sbi_domain *dom = sbi_domain_thishart_ptr();
 
 	if (!sbi_domain_check_addr(dom, addr, PRV_S, SBI_DOMAIN_READ)) {
@@ -72,7 +50,10 @@ static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
 		return 0;
 	}
 
-	return sbi_load_ulong_pa(addr, trap);
+	mstatus = csr_read_set(CSR_MSTATUS, MSTATUS_MPP);
+	res	= sbi_load_ulong((unsigned long *)addr, trap);
+	csr_write(CSR_MSTATUS, mstatus);
+	return res;
 }
 
 static sbi_pte_t sbi_load_pte_gpa(sbi_addr_t addr,
