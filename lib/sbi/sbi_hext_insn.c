@@ -26,7 +26,8 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 				return SBI_EDENIED;
 			}
 
-			/* sbi_printf("%s: 0x%08lx: TODO: hfence.*\n", __func__, insn); */
+			sbi_printf("%s: 0x%08lx: TODO: hfence.*\n", __func__,
+				   insn);
 			regs->mepc += 4;
 			return SBI_OK;
 
@@ -35,9 +36,8 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 				return SBI_EDENIED;
 			}
 
-			sbi_printf("%s: 0x%08lx: TODO: Hypervisor load/store\n",
-				   __func__, insn);
-			return SBI_ENOTSUPP;
+			sbi_panic("%s: 0x%08lx: TODO: Hypervisor load/store\n",
+				  __func__, insn);
 
 		default:
 			return SBI_ENOTSUPP;
