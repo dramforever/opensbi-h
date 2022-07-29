@@ -3,9 +3,15 @@
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_unpriv.h>
 #include <sbi/sbi_hart.h>
+#include <sbi/sbi_hext.h>
 #include <sbi/sbi_domain.h>
 #include <sbi/riscv_encoding.h>
 #include <sbi/riscv_asm.h>
+
+/* We don't use the G bit yet */
+#define PROT_ALL (PTE_R | PTE_W | PTE_X | PTE_A | PTE_D | PTE_U)
+
+const char prot_names[] = "vrwxugad";
 
 struct sbi_ptw_mode {
 	sbi_load_pte_func load_pte;
@@ -116,8 +122,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		addr_part = (addr >> shift) & mask;
 
 		sbi_printf("%s: level %d load pte 0x%llx\n", __func__, level,
-			   (unsigned long long)(node +
-						addr_part * sizeof(sbi_pte_t)));
+			   node + addr_part * sizeof(sbi_pte_t));
 
 		pte = mode->load_pte(node + addr_part * sizeof(sbi_pte_t), csr,
 				     trap);
@@ -153,7 +158,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 
 			out->base     = ppn << PAGE_SHIFT;
 			out->len      = 1UL << shift;
-			out->leaf_pte = pte;
+			out->prot     = pte;
 
 			return SBI_OK;
 		}
@@ -170,6 +175,74 @@ invalid:
 	trap->tval2 = 0;
 
 	return SBI_EINVAL;
+}
+
+static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
+{
+	sbi_pte_t prot = vsprot & (gprot & ~PTE_U) & PROT_ALL;
+
+	if (!(gprot & PTE_U) || !(prot & PTE_A))
+		return 0;
+
+	if (!(prot & PTE_D))
+		prot &= ~PTE_W;
+
+	return prot | PTE_V;
+}
+
+void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
+		struct pt_area_info *pt_area)
+{
+	const struct sbi_ptw_mode *mode = &sbi_ptw_sv39;
+
+	/* FIXME: Code duplication */
+
+	int num_levels = 0, va_bits = 0;
+	int level, shift, alloc_used = 0;
+	sbi_addr_t addr_part, mask;
+	sbi_pte_t *pte;
+	unsigned long alloc[4];
+	unsigned long node = pt_area->pt_start, new_node;
+
+	while (mode->parts[num_levels]) {
+		va_bits += mode->parts[num_levels];
+		num_levels++;
+	}
+
+	shift = va_bits;
+
+	if (!(out->len == (1 << PAGE_SHIFT)))
+		sbi_panic("%s: Unhandled huge page size\n", __func__);
+
+	sbi_hext_pt_alloc(pt_area, num_levels - 1, alloc);
+
+	for (level = num_levels - 1; level >= 1; level--) {
+		shift -= mode->parts[level];
+		mask	  = (1UL << mode->parts[level]) - 1;
+		addr_part = (va >> shift) & mask;
+
+		pte = (sbi_pte_t *)(node + addr_part * sizeof(sbi_pte_t));
+
+		if (level > 1) {
+			if (!(*pte & PTE_V)) {
+				new_node = alloc[alloc_used++];
+				sbi_printf("%s: new node 0x%lx\n", __func__,
+					   new_node);
+
+				*pte = PTE_V | ((new_node >> PAGE_SHIFT)
+						<< PTE_PPN_SHIFT);
+			}
+
+			node = ((*pte >> PTE_PPN_SHIFT) & PTE_PPN_MASK)
+			       << PAGE_SHIFT;
+		} else {
+			*pte = out->prot |
+			       ((out->base >> PAGE_SHIFT) << PTE_PPN_SHIFT);
+		}
+	}
+
+	sbi_hext_pt_dealloc(pt_area, num_levels - 1 - alloc_used,
+			    alloc + alloc_used);
 }
 
 static ulong convert_pf_to_gpf(ulong cause)
@@ -191,6 +264,7 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 {
 	int ret;
 	sbi_addr_t gpa, pa;
+	struct sbi_ptw_out gout;
 
 	if (csr->vsatp >> SATP_MODE_SHIFT != SATP_MODE_OFF) {
 		sbi_panic("not bare");
@@ -203,15 +277,38 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 	}
 
 	ret = sbi_pt_walk(gpa, (csr->hgatp & HGATP_PPN) << PAGE_SHIFT, csr,
-			  &sbi_ptw_sv39x4, out, trap);
+			  &sbi_ptw_sv39x4, &gout, trap);
 
 	if (ret) {
+		sbi_printf("%s: Guest-page fault\n", __func__);
+		trap->tval  = gva;
+		trap->tval2 = gpa >> 2;
 		trap->cause = convert_pf_to_gpf(trap->cause);
 		return ret;
 	}
 
-	pa = out->base + (gpa & (out->len - 1));
+	out->base = gout.base;
+	out->len  = gout.len;
+	out->prot = prot_translate(PROT_ALL, gout.prot);
 
-	sbi_printf("%s: gpa 0x%llx -> pa 0x%llx\n", __func__, gpa, pa);
-	sbi_panic("todo");
+	pa = out->base + (gpa & (out->len - 1));
+	sbi_printf("%s: gpa 0x%llx -> pa 0x%llx prot ", __func__, gpa, pa);
+
+	for (int i = 0; i < 8; i++) {
+		if ((out->prot >> i) & 1)
+			sbi_printf("%c", prot_names[i]);
+		else
+			sbi_printf("-");
+	}
+
+	sbi_printf("\n");
+
+	/* We only handle base-sized pages for now */
+	out->base = pa & PAGE_MASK;
+	out->len  = 1 << PAGE_SHIFT;
+
+	sbi_printf("%s: base 0x%llx len 0x%llx\n", __func__, out->base,
+		   out->len);
+
+	return SBI_OK;
 }
