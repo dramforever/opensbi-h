@@ -121,9 +121,6 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		mask	  = (1UL << mode->parts[level]) - 1;
 		addr_part = (addr >> shift) & mask;
 
-		sbi_printf("%s: level %d load pte 0x%llx\n", __func__, level,
-			   node + addr_part * sizeof(sbi_pte_t));
-
 		pte = mode->load_pte(node + addr_part * sizeof(sbi_pte_t), csr,
 				     trap);
 
@@ -133,8 +130,6 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 			return SBI_EINVAL;
 		}
 
-		sbi_printf("%s: pte is %016lx\n", __func__, pte);
-
 		if ((pte & 1) != 1) {
 			sbi_printf("%s: pte not valid\n", __func__);
 			goto invalid;
@@ -143,11 +138,6 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		ppn = ((pte >> PTE_PPN_SHIFT) & PTE_PPN_MASK);
 
 		if (level != 1 && (pte & (PTE_R | PTE_W | PTE_X))) {
-			sbi_printf(
-				"%s: leaf pte ppn 0x%llx (pa 0x%llx) at level %d, shift = %d, va_bits = %d\n",
-				__func__, ppn, ppn << PAGE_SHIFT, level, shift,
-				va_bits);
-
 			if (ppn & ((1 << (shift - PAGE_SHIFT)) - 1))
 				goto invalid;
 
@@ -226,9 +216,6 @@ void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 		if (level > 1) {
 			if (!(*pte & PTE_V)) {
 				new_node = alloc[alloc_used++];
-				sbi_printf("%s: new node 0x%lx\n", __func__,
-					   new_node);
-
 				*pte = PTE_V | ((new_node >> PAGE_SHIFT)
 						<< PTE_PPN_SHIFT);
 			}
@@ -306,9 +293,6 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 	/* We only handle base-sized pages for now */
 	out->base = pa & PAGE_MASK;
 	out->len  = 1 << PAGE_SHIFT;
-
-	sbi_printf("%s: base 0x%llx len 0x%llx\n", __func__, out->base,
-		   out->len);
 
 	return SBI_OK;
 }
