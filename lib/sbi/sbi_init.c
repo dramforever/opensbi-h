@@ -173,8 +173,6 @@ static void sbi_boot_print_hext(struct sbi_scratch *scratch)
 		sbi_printf("Hypervisor Extension      : Emulated\n");
 		sbi_printf("Shadow PT Space Base      : 0x%lx\n",
 			   (unsigned long)hext_pt_start);
-		sbi_printf("Shadow PT Space Meta      : 0x%lx\n",
-			   (unsigned long)hext_pt_meta);
 		sbi_printf("Shadow PT Space Size      : %lu pages\n",
 			   hext_pt_size);
 	} else {

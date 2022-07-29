@@ -14,9 +14,8 @@
 #define MSTATUS_TRY_FEATURES (MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 #define MSTATUS_NEED_FEATURES (MSTATUS_TVM | MSTATUS_TSR)
 
-unsigned long *hext_pt_start;
-struct pt_meta *hext_pt_meta;
-size_t hext_pt_size;
+unsigned long hext_pt_start;
+unsigned long hext_pt_size;
 
 unsigned long hext_mstatus_features;
 
@@ -216,7 +215,7 @@ not_found:
 static int sbi_hext_relocate(struct sbi_scratch *scratch)
 {
 	int rc;
-	unsigned long relocate_base = (unsigned long)hext_pt_meta;
+	unsigned long relocate_base = (unsigned long)hext_pt_start;
 
 	rc = relocate_initrd(scratch, &relocate_base);
 	if (rc)
@@ -369,29 +368,13 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 		return SBI_ENOMEM;
 	}
 
-	hext_pt_start = (sbi_pte_t *)region.base;
+	hext_pt_start = region.base;
 	hext_pt_size  = (1UL << region.order) / PT_NODE_SIZE;
 
 	patch_fdt_reserve((void *)scratch->next_arg1,
 			  (unsigned long)hext_pt_start, hext_pt_size);
 
-	sbi_domain_memregion_init((unsigned long)hext_pt_start -
-					  hext_pt_size * sizeof(struct pt_meta),
-				  hext_pt_size * sizeof(struct pt_meta), 0,
-				  &region);
-
-	rc = sbi_domain_root_add_memregion(&region);
-	if (rc) {
-		sbi_printf(
-			"%s: Failed to add memregion for shadow page table metadata\n",
-			__func__);
-		return SBI_ENOMEM;
-	}
-
-	hext_pt_meta = (struct pt_meta *)region.base;
-
-	rc = sbi_hext_pt_init(hext_pt_start, hext_pt_meta,
-			      hext_pt_size / hart_count);
+	rc = sbi_hext_pt_init(hext_pt_start, hext_pt_size / hart_count);
 
 	if (rc)
 		return rc;
