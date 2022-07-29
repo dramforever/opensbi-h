@@ -43,13 +43,18 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	struct sbi_ptw_csr csr = { .hgatp = hext->hgatp, .vsatp = hext->vsatp };
 	struct sbi_ptw_out out;
 	struct sbi_trap_info trap;
-	sbi_printf("%s: page fault 0x%lx\n", __func__, tval);
+	sbi_printf("%s: page fault 0x%lx cause %lx at %lx\n", __func__, tval,
+		   cause, regs->mepc);
 	ret = sbi_ptw_translate(tval, &csr, &out, &trap);
 	if (ret) {
 		sbi_printf("%s: redirecting page fault\n", __func__);
 		trap.cause = convert_access_type(trap.cause, cause);
 		return sbi_trap_redirect(regs, &trap);
 	}
+
+	sbi_printf("%s: mapping guest page\n", __func__);
+	sbi_pt_map(tval, &out, &hext->pt_area);
+	asm volatile("sfence.vma");
 
 	return SBI_OK;
 }
