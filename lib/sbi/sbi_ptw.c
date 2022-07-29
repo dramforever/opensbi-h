@@ -146,6 +146,11 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 			if (ppn & ((1 << (shift - PAGE_SHIFT)) - 1))
 				goto invalid;
 
+#if __riscv_xlen == 64
+			if ((pte >> PTE64_RESERVED_SHIFT) != 0)
+				goto invalid;
+#endif
+
 			out->base     = ppn << PAGE_SHIFT;
 			out->len      = 1UL << shift;
 			out->leaf_pte = pte;
