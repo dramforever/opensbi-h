@@ -251,6 +251,7 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		sbi_printf("%s: Guest-page fault\n", __func__);
 		trap->tval  = gva;
 		trap->tval2 = gpa >> 2;
+		trap->tinst = 0;
 		trap->cause = convert_pf_to_gpf(trap->cause);
 		return ret;
 	}
