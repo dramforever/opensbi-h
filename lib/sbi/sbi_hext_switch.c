@@ -37,6 +37,19 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		hext->stval    = csr_swap(CSR_STVAL, hext->stval);
 		hext->sie      = csr_swap(CSR_SIE, hext->sie);
 
+		/*
+		 * On implementations supporting RVH, (HS-level) sstatus.FS
+		 * overrides vsstatus.FS. If sstatus.FS = Off, no matter what
+		 * state vsstatus.FS is in, operations that modify floating
+		 * point state raise illegal instruction exceptions.
+		 *
+		 * However, mstatus.FS does *not* override sstatus.FS. So
+		 * there's now way for us to emulate this behavior for HS-mode.
+		 * For now, just check if this emulation is needed and panic.
+		 *
+		 * Similarly for sstatus.VS.
+		 */
+
 		if (misa_extension('F') && (hext->sstatus & SSTATUS_FS) == 0)
 			sbi_panic("%s: Impossible to enforce sstatus.FS = Off",
 				  __func__);
@@ -79,6 +92,18 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		hext->stval    = csr_swap(CSR_STVAL, hext->stval);
 		hext->sie      = csr_swap(CSR_SIE, hext->sie);
 
+		/*
+		 * If RVF is implemented, sstatus.FS must not be Off prior to
+		 * entering VS/VU-mode. This is asserted above.
+		 *
+		 * Since VS-mode has full control over sstatus.FS, and
+		 * sstatus.FS is just an alias of mstatus.FS, we could not know,
+		 * for example, if the guest touched floating point state and
+		 * put sstatus.FS back to Clean. Therefore, we must assume that
+		 * sstatus.FS should be dirty now.
+		 *
+		 * Similarly for sstatus.VS.
+		 */
 		csr_set(CSR_SSTATUS, SSTATUS_FS | SSTATUS_VS);
 
 		// FIXME: Interrupts don't actually work like this
