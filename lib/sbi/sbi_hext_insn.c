@@ -26,11 +26,18 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 				return SBI_EDENIED;
 			}
 
-			/* Conservatively flush everything */
-			sbi_hext_pt_flush_all(&hext->pt_area);
+			if ((insn & INSN_MASK_HFENCE_GVMA) ==
+				    INSN_MATCH_HFENCE_GVMA ||
+			    (insn & INSN_MASK_HFENCE_VVMA) ==
+				    INSN_MATCH_HFENCE_VVMA) {
+				/* Conservatively flush everything */
+				sbi_hext_pt_flush_all(&hext->pt_area);
 
-			regs->mepc += 4;
-			return SBI_OK;
+				regs->mepc += 4;
+				return SBI_OK;
+			} else {
+				return SBI_ENOTSUPP;
+			}
 
 		case 0b100:
 			if (mpp < PRV_S && !(hext->hstatus & HSTATUS_HU)) {
