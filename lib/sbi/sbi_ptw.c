@@ -14,8 +14,17 @@
 const char prot_names[] = "vrwxugad";
 
 struct sbi_ptw_mode {
+	/** Function to load PTE based on address */
 	sbi_load_pte_func load_pte;
+
+	/** Is the address sign-extended? */
 	bool addr_signed;
+
+	/**
+	 * Number of address bits in each segment, starting LSB first, with the
+	 * number of bits in a page offset, then number of bits for each level,
+	 * then a terminating 0.
+	 */
 	char parts[8];
 };
 
@@ -75,6 +84,17 @@ static inline bool addr_valid(sbi_addr_t addr, const struct sbi_ptw_mode *mode,
 	}
 }
 
+/**
+ * Perform a page table based virtual address translation.
+ *
+ * @param addr Address to translate
+ * @param pt_root Root node address of the page table
+ * @param csr Relevant CSR state for this translation
+ * @param mode Mode to use for this translation
+ * @param out Physical address region info for successful translation
+ * @param trap Trap info for unsuccessful translation
+ * @return Zero if successful, non-zero if unsuccessful
+ */
 static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		       const struct sbi_ptw_csr *csr,
 		       const struct sbi_ptw_mode *mode, struct sbi_ptw_out *out,
@@ -148,6 +168,15 @@ invalid:
 	return SBI_EINVAL;
 }
 
+/**
+ * Combine flags from VS-stage leaf PTE and G-stage leaf PTE.
+ *
+ * This function assumes software management of A and D bits.
+ *
+ * @param vsprot VS-stage leaf PTE. Only flag bits are considered.
+ * @param gprot G-stage leaf PTE. Only flag bits are considered.
+ * @return Combined flag bits from the entire translation process.
+ */
 static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
 {
 	sbi_pte_t prot = vsprot & (gprot & ~PTE_U) & PROT_ALL;
@@ -161,6 +190,15 @@ static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
 	return prot | PTE_V;
 }
 
+/**
+ * Map a page into shadow page table. This function cannot fail.
+ *
+ * FIXME: Handle non-Sv39.
+ *
+ * @param va Virtual address of the mapping
+ * @param out Description of physical address region
+ * @param pt_area Shadow page table region
+ */
 void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 		struct pt_area_info *pt_area)
 {
@@ -227,6 +265,15 @@ static ulong convert_pf_to_gpf(ulong cause)
 	}
 }
 
+/**
+ * Translate a guest virtual address based on vsatp and hgatp.
+ *
+ * @param gva Guest virtual address to translate
+ * @param csr Relevant CSR state for this translation
+ * @param out Physical address region info for successful translation
+ * @param trap Trap info for unsuccessful translation
+ * @return Zero if successful, non-zero if unsuccessful
+ */
 int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		      struct sbi_ptw_out *out, struct sbi_trap_info *trap)
 {

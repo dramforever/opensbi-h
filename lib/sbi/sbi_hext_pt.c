@@ -37,6 +37,19 @@ int sbi_hext_pt_init(unsigned long pt_start, unsigned long nodes_per_hart)
 	return SBI_OK;
 }
 
+/**
+ * Allocate page table nodes from a shadow page table area
+ *
+ * Allocating page table nodes can invalidate previously allocated nodes. The
+ * expected use is to allocate the maximum number of nodes before inserting page
+ * table entries, and return unused ones after.
+ *
+ * This function cannot fail.
+ *
+ * @param pt_area Shadow page table area
+ * @param num Number of nodes to allocate
+ * @param addrs Output array of physical addresses of each node
+ */
 void sbi_hext_pt_alloc(struct pt_area_info *pt_area, size_t num,
 		       unsigned long *addrs)
 {
@@ -63,6 +76,15 @@ void sbi_hext_pt_alloc(struct pt_area_info *pt_area, size_t num,
 		sbi_memset((void *)addrs[i], 0, PT_NODE_SIZE);
 }
 
+/**
+ * Deallocate page table nodes back to a shadow page table area
+ *
+ * This function cannot fail.
+ *
+ * @param pt_area Shadow page table area
+ * @param num Number of nodes to deallocate
+ * @param addrs Array of physical addresses of each node
+ */
 void sbi_hext_pt_dealloc(struct pt_area_info *pt_area, size_t num,
 			 const unsigned long *addrs)
 {
@@ -72,6 +94,14 @@ void sbi_hext_pt_dealloc(struct pt_area_info *pt_area, size_t num,
 	}
 }
 
+/**
+ * Invalidate and deallocate all nodes in a shadow page table area, and flush
+ * translation caches.
+ *
+ * This function cannot fail.
+ *
+ * @param pt_area Shadow page table area
+ */
 void sbi_hext_pt_flush_all(struct pt_area_info *pt_area)
 {
 	pt_area->alloc_top = pt_area->pt_start + PT_NODE_SIZE;
