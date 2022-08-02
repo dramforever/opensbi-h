@@ -881,6 +881,11 @@
 #define INSN_MASK_SINVAL_VMA		0xfe007f80
 #define INSN_MATCH_SINVAL_VMA		0x16000000
 
+#define INSN_MASK_HFENCE_VVMA		0xfe007fff
+#define INSN_MATCH_HFENCE_VVMA		0x22000073
+#define INSN_MASK_HFENCE_GVMA		0xfe007fff
+#define INSN_MATCH_HFENCE_GVMA		0x62000073
+
 #if __riscv_xlen == 64
 
 /* 64-bit read for VS-stage address translation (RV64) */
