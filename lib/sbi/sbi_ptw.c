@@ -87,6 +87,10 @@ static inline bool addr_valid(sbi_addr_t addr, const struct sbi_ptw_mode *mode,
 /**
  * Perform a page table based virtual address translation.
  *
+ * Returned trap cause is 'load page fault' for all page table related faults.
+ * Caller should convert it to the original access type, and possibly convert
+ * page faults to guest-page faults.
+ *
  * @param addr Address to translate
  * @param pt_root Root node address of the page table
  * @param csr Relevant CSR state for this translation
@@ -191,7 +195,9 @@ static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
 }
 
 /**
- * Map a page into shadow page table. This function cannot fail.
+ * Map a page into shadow page table.
+ *
+ * This function cannot fail.
  *
  * FIXME: Handle non-Sv39.
  *
@@ -267,6 +273,9 @@ static ulong convert_pf_to_gpf(ulong cause)
 
 /**
  * Translate a guest virtual address based on vsatp and hgatp.
+ *
+ * Returned trap cause may have the wrong access type. Caller should convert it
+ * to the original access type.
  *
  * @param gva Guest virtual address to translate
  * @param csr Relevant CSR state for this translation
