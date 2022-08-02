@@ -35,6 +35,14 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		hext->stval    = csr_swap(CSR_STVAL, hext->stval);
 		hext->sie      = csr_swap(CSR_SIE, hext->sie);
 
+		hext->sstatus &= SSTATUS_SIE;
+		hext->sstatus |=
+			(hext->sstatus & SSTATUS_SPIE) ? SSTATUS_SIE : 0;
+		hext->sstatus |= SSTATUS_SPIE;
+
+		hext->hstatus &= ~HSTATUS_SPV;
+		hext->sstatus &= ~SSTATUS_SPP;
+
 		// FIXME: Interrupts don't actually work like this
 		hext->sip = csr_swap(CSR_SIP, hext->sip);
 
