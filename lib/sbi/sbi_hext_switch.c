@@ -21,6 +21,8 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 
 	hext->virt = virt;
 
+	sbi_printf("%s: [ VM %s ]\n", __func__, virt ? "enter" : "exit");
+
 	if (virt) {
 		tvm = (hext->hgatp >> HGATP_MODE_SHIFT) != HGATP_MODE_OFF ||
 		      (hext->hstatus & HSTATUS_VTVM) != 0;
@@ -34,6 +36,14 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		hext->scause   = csr_swap(CSR_SCAUSE, hext->scause);
 		hext->stval    = csr_swap(CSR_STVAL, hext->stval);
 		hext->sie      = csr_swap(CSR_SIE, hext->sie);
+
+		if (misa_extension('F') && (hext->sstatus & SSTATUS_FS) == 0)
+			sbi_panic("%s: Impossible to enforce sstatus.FS = Off",
+				  __func__);
+
+		if (misa_extension('V') && (hext->sstatus & SSTATUS_VS) == 0)
+			sbi_panic("%s: Impossible to enforce sstatus.VS = Off",
+				  __func__);
 
 		hext->sstatus &= SSTATUS_SIE;
 		hext->sstatus |=
@@ -68,6 +78,8 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		hext->scause   = csr_swap(CSR_SCAUSE, hext->scause);
 		hext->stval    = csr_swap(CSR_STVAL, hext->stval);
 		hext->sie      = csr_swap(CSR_SIE, hext->sie);
+
+		csr_set(CSR_SSTATUS, SSTATUS_FS | SSTATUS_VS);
 
 		// FIXME: Interrupts don't actually work like this
 		hext->sip = csr_swap(CSR_SIP, hext->sip);
