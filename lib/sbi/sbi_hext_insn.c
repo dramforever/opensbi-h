@@ -3,12 +3,95 @@
  */
 
 #include <sbi/sbi_hext.h>
+#include <sbi/sbi_ptw.h>
+#include <sbi/sbi_trap.h>
+#include <sbi/sbi_types.h>
 #include <sbi/sbi_console.h>
+#include <sbi/sbi_unpriv.h>
+#include <sbi/sbi_string.h>
 #include <sbi/riscv_encoding.h>
+
+static u8 sbi_hyp_load_u8(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
+			  sbi_pte_t access, struct sbi_trap_info *trap)
+{
+	int ret;
+	u8 result;
+	unsigned long mstatus, pa;
+	struct sbi_ptw_out out;
+
+	ret = sbi_ptw_translate(gva, csr, &out, trap);
+
+	if (ret) {
+		trap->cause = sbi_convert_access_type(trap->cause,
+						      CAUSE_LOAD_PAGE_FAULT);
+		return 0;
+	}
+
+	if (!(out.prot & access)) {
+		trap->cause = CAUSE_LOAD_PAGE_FAULT;
+		trap->tval  = gva;
+		trap->tval2 = 0;
+		trap->tinst = 0;
+
+		return 0;
+	}
+
+	pa = (out.base & ~(out.len - 1)) | (gva & (out.len - 1));
+
+	mstatus = csr_read_set(CSR_MSTATUS, MSTATUS_MPP);
+	result	= sbi_load_u8((u8 *)pa, trap);
+	csr_write(CSR_MSTATUS, mstatus);
+
+	return result;
+}
+
+static int sbi_hyp_mem(unsigned long insn, const struct sbi_ptw_csr *csr,
+		       struct sbi_trap_regs *regs)
+{
+	sbi_pte_t access;
+	unsigned long data = 0;
+	int i, shift;
+	int sign, len;
+	u8 res;
+	sbi_addr_t gva;
+	struct sbi_trap_info trap;
+
+	if ((insn & INSN_MASK_HLVX_HU) == INSN_MATCH_HLVX_HU) {
+		sign   = 0;
+		len    = 2;
+		access = PTE_X;
+	} else {
+		sbi_panic("%s: Unimplemented hypervisor load/store %08lx\n",
+			  __func__, insn);
+	}
+
+	gva = GET_RS1(insn, regs);
+
+	// sbi_printf("%s: Hypervisor load store, gva = 0x%llx\n", __func__, gva);
+
+	for (i = 0; i < len; i++) {
+		res = sbi_hyp_load_u8(gva + i, csr, access, &trap);
+		if (trap.cause) {
+			trap.epc = regs->mepc;
+			return sbi_trap_redirect(regs, &trap);
+		}
+		data = data | (res << (i * 8));
+	}
+
+	if (sign) {
+		shift = 8 * (sizeof(ulong) - len);
+		data  = ((long)data << shift) >> shift;
+	}
+
+	SET_RD(insn, regs, data);
+	regs->mepc += 4;
+	return SBI_OK;
+}
 
 int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 {
 	struct hext_state *hext = sbi_hext_current_state();
+	struct sbi_ptw_csr csr = { .hgatp = hext->hgatp, .vsatp = hext->vsatp };
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
 	if (!sbi_hext_enabled() || hext->virt)
@@ -46,6 +129,7 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 
 			sbi_panic("%s: 0x%08lx: TODO: Hypervisor load/store\n",
 				  __func__, insn);
+			return sbi_hyp_mem(insn, &csr, regs);
 
 		default:
 			return SBI_ENOTSUPP;
