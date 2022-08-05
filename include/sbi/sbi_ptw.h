@@ -32,4 +32,33 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 		struct pt_area_info *pt_area);
 
+static inline ulong sbi_convert_access_type(ulong cause, ulong orig_cause)
+{
+	switch (cause) {
+
+#define access_type_case(ty)                     \
+	case CAUSE_FETCH_##ty:                   \
+	case CAUSE_LOAD_##ty:                    \
+	case CAUSE_STORE_##ty:                   \
+		switch (orig_cause) {            \
+		case CAUSE_LOAD_PAGE_FAULT:      \
+			return CAUSE_LOAD_##ty;  \
+		case CAUSE_STORE_PAGE_FAULT:     \
+			return CAUSE_STORE_##ty; \
+		case CAUSE_FETCH_PAGE_FAULT:     \
+			return CAUSE_FETCH_##ty; \
+		default:                         \
+			return cause;            \
+		}
+
+		access_type_case(ACCESS);
+		access_type_case(PAGE_FAULT);
+		access_type_case(GUEST_PAGE_FAULT);
+
+	default:
+		return cause;
+
+#undef access_type_case
+	}
+}
 #endif
