@@ -142,23 +142,26 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 
 		ppn = ((pte >> PTE_PPN_SHIFT) & PTE_PPN_MASK);
 
-		if (level != 1 && (pte & (PTE_R | PTE_W | PTE_X))) {
+#if __riscv_xlen == 64
+		if ((pte >> PTE64_RESERVED_SHIFT) != 0)
+			goto invalid;
+#endif
+
+		if (pte & (PTE_R | PTE_W | PTE_X)) {
 			if (ppn & ((1 << (shift - PAGE_SHIFT)) - 1))
 				goto invalid;
 
-#if __riscv_xlen == 64
-			if ((pte >> PTE64_RESERVED_SHIFT) != 0)
-				goto invalid;
-#endif
-
-			out->base     = ppn << PAGE_SHIFT;
-			out->len      = 1UL << shift;
-			out->prot     = pte;
+			out->base = ppn << PAGE_SHIFT;
+			out->len  = 1UL << shift;
+			out->prot = pte;
 
 			return SBI_OK;
+		} else {
+			/* D, A, U bits are reserved for non-leaf PTEs */
+			if (pte & (PTE_A | PTE_D | PTE_U))
+				goto invalid;
+			node = ppn << PAGE_SHIFT;
 		}
-
-		node = ppn << PAGE_SHIFT;
 	}
 
 	sbi_printf("%s: no leaf found\n", __func__);
@@ -241,8 +244,8 @@ void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 		if (level > 1) {
 			if (!(*pte & PTE_V)) {
 				new_node = alloc[alloc_used++];
-				*pte = PTE_V | ((new_node >> PAGE_SHIFT)
-						<< PTE_PPN_SHIFT);
+				*pte	 = PTE_V | ((new_node >> PAGE_SHIFT)
+						    << PTE_PPN_SHIFT);
 			}
 
 			node = ((*pte >> PTE_PPN_SHIFT) & PTE_PPN_MASK)
