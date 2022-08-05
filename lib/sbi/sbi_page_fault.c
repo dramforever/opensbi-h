@@ -34,8 +34,8 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	ret = sbi_ptw_translate(tval, &csr, &out, &trap);
 
 	if (ret) {
-		trap.cause = convert_access_type(trap.cause, cause);
-		return sbi_trap_redirect(regs, &trap);
+		trap.cause = sbi_convert_access_type(trap.cause, cause);
+		goto trap;
 	}
 
 	if ((access & out.prot) != access) {
@@ -43,11 +43,15 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 		trap.tval  = tval;
 		trap.tval2 = 0;
 		trap.tinst = 0;
-		return sbi_trap_redirect(regs, &trap);
+		goto trap;
 	}
 
 	sbi_pt_map(tval, &out, &hext->pt_area);
 	asm volatile("sfence.vma" ::: "memory");
 
 	return SBI_OK;
+
+trap:
+	trap.epc = regs->mepc;
+	return sbi_trap_redirect(regs, &trap);
 }
