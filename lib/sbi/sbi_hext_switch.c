@@ -21,8 +21,6 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 
 	hext->virt = virt;
 
-	sbi_printf("%s: [ VM %s ]\n", __func__, virt ? "enter" : "exit");
-
 	if (virt) {
 		tvm = (hext->hgatp >> HGATP_MODE_SHIFT) != HGATP_MODE_OFF ||
 		      (hext->hstatus & HSTATUS_VTVM) != 0;

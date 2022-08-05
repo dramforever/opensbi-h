@@ -136,7 +136,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		}
 
 		if ((pte & 1) != 1) {
-			sbi_printf("%s: pte not valid\n", __func__);
+			// sbi_printf("%s: pte not valid\n", __func__);
 			goto invalid;
 		}
 
@@ -307,7 +307,7 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 			  &sbi_ptw_sv39x4, &gout, trap);
 
 	if (ret) {
-		sbi_printf("%s: Guest-page fault\n", __func__);
+		// sbi_printf("%s: Guest-page fault\n", __func__);
 		trap->tval  = gva;
 		trap->tval2 = gpa >> 2;
 		trap->tinst = 0;
@@ -320,16 +320,16 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 	out->prot = prot_translate(PROT_ALL, gout.prot);
 
 	pa = out->base + (gpa & (out->len - 1));
-	sbi_printf("%s: gpa 0x%llx -> pa 0x%llx prot ", __func__, gpa, pa);
+	// sbi_printf("%s: gpa 0x%llx -> pa 0x%llx prot ", __func__, gpa, pa);
 
-	for (int i = 0; i < 8; i++) {
-		if ((out->prot >> i) & 1)
-			sbi_printf("%c", prot_names[i]);
-		else
-			sbi_printf("-");
-	}
+	// for (int i = 0; i < 8; i++) {
+	// 	if ((out->prot >> i) & 1)
+	// 		sbi_printf("%c", prot_names[i]);
+	// 	else
+	// 		sbi_printf("-");
+	// }
 
-	sbi_printf("\n");
+	// sbi_printf("\n");
 
 	/* We only handle base-sized pages for now */
 	out->base = pa & PAGE_MASK;

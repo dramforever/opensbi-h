@@ -29,8 +29,8 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	struct sbi_trap_info trap;
 	sbi_pte_t access = cause_to_access(cause);
 
-	sbi_printf("%s: page fault 0x%lx cause %d at pc=0x%lx\n", __func__,
-		   tval, (int)cause, regs->mepc);
+	// sbi_printf("%s: page fault 0x%lx cause %d at pc=0x%lx\n", __func__,
+	// 	   tval, (int)cause, regs->mepc);
 	ret = sbi_ptw_translate(tval, &csr, &out, &trap);
 
 	if (ret) {

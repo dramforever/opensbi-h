@@ -127,8 +127,6 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 				return SBI_EDENIED;
 			}
 
-			sbi_panic("%s: 0x%08lx: TODO: Hypervisor load/store\n",
-				  __func__, insn);
 			return sbi_hyp_mem(insn, &csr, regs);
 
 		default:
