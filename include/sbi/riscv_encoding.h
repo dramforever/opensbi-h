@@ -886,6 +886,39 @@
 #define INSN_MASK_HFENCE_GVMA		0xfe007fff
 #define INSN_MATCH_HFENCE_GVMA		0x62000073
 
+#define INSN_MASK_HLV_B			0xfff0707f
+#define INSN_MATCH_HLV_B		0x60004073
+#define INSN_MASK_HLV_BU		0xfff0707f
+#define INSN_MATCH_HLV_BU		0x60104073
+#define INSN_MASK_HLV_H			0xfff0707f
+#define INSN_MATCH_HLV_H		0x64004073
+#define INSN_MASK_HLV_HU		0xfff0707f
+#define INSN_MATCH_HLV_HU		0x64104073
+#define INSN_MASK_HLV_W			0xfff0707f
+#define INSN_MATCH_HLV_W		0x68004073
+#define INSN_MASK_HSV_B			0xfe007fff
+#define INSN_MATCH_HSV_B		0x62004073
+#define INSN_MASK_HSV_H			0xfe007fff
+#define INSN_MATCH_HSV_H		0x66004073
+#define INSN_MASK_HSV_W			0xfe007fff
+#define INSN_MATCH_HSV_W		0x6a004073
+
+#define INSN_MASK_HLVX_HU		0xfff0707f
+#define INSN_MATCH_HLVX_HU		0x64304073
+#define INSN_MASK_HLVX_WU		0xfff0707f
+#define INSN_MATCH_HLVX_WU		0x68304073
+
+#if __riscv_xlen > 32
+
+#define INSN_MASK_HLV_WU		0xfff0707f
+#define INSN_MATCH_HLV_WU		0x68104073
+#define INSN_MASK_HLV_D			0xfff0707f
+#define INSN_MATCH_HLV_D		0x6c004073
+#define INSN_MASK_HSV_D			0xfe007fff
+#define INSN_MATCH_HSV_D		0x6e004073
+
+#endif
+
 #if __riscv_xlen == 64
 
 /* 64-bit read for VS-stage address translation (RV64) */
