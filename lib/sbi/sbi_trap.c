@@ -289,6 +289,34 @@ static int sbi_trap_aia_irq(struct sbi_trap_regs *regs, ulong mcause)
 	return 0;
 }
 
+static int sbi_trap_check_interrupt(struct sbi_trap_regs *regs)
+{
+	struct hext_state *hext = sbi_hext_current_state();
+	struct sbi_trap_info trap;
+
+	if (hext->virt && (hext->sip & MIP_STIP)) {
+		trap.cause = IRQ_S_TIMER | BIT(__riscv_xlen - 1);
+	} else if (hext->virt && (hext->sip & MIP_SEIP)) {
+		trap.cause = IRQ_S_EXT | BIT(__riscv_xlen - 1);
+	} else if (hext->virt && (hext->sip & MIP_SSIP)) {
+		trap.cause = IRQ_S_SOFT | BIT(__riscv_xlen - 1);
+	} else {
+		return SBI_OK;
+	}
+
+	// sbi_printf("%s: Preempt from %lx %lx pc=0x%lx\n", __func__,
+	// 	   (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT,
+	// 	   (csr_read(CSR_MSTATUS) & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT,
+	// 	   regs->mepc);
+
+	trap.epc   = regs->mepc;
+	trap.tval  = 0;
+	trap.tval2 = 0;
+	trap.tinst = 0;
+
+	return sbi_trap_redirect(regs, &trap);
+}
+
 /**
  * Handle trap/interrupt
  *
@@ -328,7 +356,8 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 			msg = "unhandled local interrupt";
 			goto trap_error;
 		}
-		return regs;
+		rc = sbi_trap_check_interrupt(regs);
+		goto trap_error;
 	}
 
 	switch (mcause) {
@@ -376,6 +405,11 @@ struct sbi_trap_regs *sbi_trap_handler(struct sbi_trap_regs *regs)
 		rc = sbi_trap_redirect(regs, &trap);
 		break;
 	};
+
+	if (rc)
+		goto trap_error;
+
+	rc = sbi_trap_check_interrupt(regs);
 
 trap_error:
 	if (rc)

@@ -9,6 +9,7 @@
 #include <sbi/sbi_console.h>
 #include <sbi/sbi_unpriv.h>
 #include <sbi/sbi_string.h>
+#include <sbi/sbi_bitops.h>
 #include <sbi/riscv_encoding.h>
 
 static u8 sbi_hyp_load_u8(sbi_addr_t gva, const struct sbi_ptw_csr *csr,

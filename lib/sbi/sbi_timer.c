@@ -17,6 +17,7 @@
 #include <sbi/sbi_pmu.h>
 #include <sbi/sbi_scratch.h>
 #include <sbi/sbi_timer.h>
+#include <sbi/sbi_hext.h>
 
 static unsigned long time_delta_off;
 static u64 (*get_time_val)(void);
@@ -153,14 +154,23 @@ void sbi_timer_event_start(u64 next_event)
 
 void sbi_timer_process(void)
 {
+	struct hext_state *hext = sbi_hext_current_state();
+
 	csr_clear(CSR_MIE, MIP_MTIP);
 	/*
 	 * If sstc extension is available, supervisor can receive the timer
 	 * directly without M-mode come in between. This function should
 	 * only invoked if M-mode programs the timer for its own purpose.
 	 */
-	if (!sbi_hart_has_extension(sbi_scratch_thishart_ptr(), SBI_HART_EXT_SSTC))
-		csr_set(CSR_MIP, MIP_STIP);
+	if (!sbi_hart_has_extension(sbi_scratch_thishart_ptr(),
+				    SBI_HART_EXT_SSTC)) {
+		// sbi_printf("%s: MTI V=%d\n", __func__, hext->virt);
+
+		if (hext->virt)
+			hext->sip |= SIP_STIP;
+		else
+			csr_set(CSR_MIP, MIP_STIP);
+	}
 }
 
 const struct sbi_timer_device *sbi_timer_get_device(void)

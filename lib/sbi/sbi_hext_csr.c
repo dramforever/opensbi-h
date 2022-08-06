@@ -63,6 +63,10 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		*csr_val = hext->hie;
 		return SBI_OK;
 
+	case CSR_HIP:
+		*csr_val = hext->hip;
+		return SBI_OK;
+
 	case CSR_HVIP:
 		*csr_val = hext->hvip;
 		return SBI_OK;
@@ -185,6 +189,11 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 	case CSR_HIE:
 		csr_val &= MIP_VS_ALL;
 		hext->hie = csr_val;
+		return SBI_OK;
+
+	case CSR_HIP:
+		csr_val &= MIP_VS_ALL;
+		hext->hip = csr_val;
 		return SBI_OK;
 
 	case CSR_HVIP:
