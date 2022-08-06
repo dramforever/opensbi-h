@@ -65,6 +65,16 @@
 #define SSTATUS64_UXL			MSTATUS_UXL
 #define SSTATUS64_SD			MSTATUS64_SD
 
+#if __riscv_xlen == 32
+#define SSTATUS_WRITABLE_MASK                                                 \
+	(SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_VS | \
+	 SSTATUS_SUM | SSTATUS_MXR)
+#else
+#define SSTATUS_WRITABLE_MASK                                                 \
+	(SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_VS | \
+	 SSTATUS_SUM | SSTATUS_MXR | SSTATUS64_UXL)
+#endif
+
 #if __riscv_xlen == 64
 #define HSTATUS_VSXL			_UL(0x300000000)
 #define HSTATUS_VSXL_SHIFT		32

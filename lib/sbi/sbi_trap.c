@@ -193,7 +193,7 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 		if (misa_extension('H'))
 			vsstatus = csr_read(CSR_VSSTATUS);
 		else
-			vsstatus = csr_read(CSR_SSTATUS);
+			vsstatus = regs->mstatus & SSTATUS_WRITABLE_MASK;
 
 		/* Set SPP for VS-mode */
 		vsstatus &= ~SSTATUS_SPP;
@@ -209,10 +209,12 @@ int sbi_trap_redirect(struct sbi_trap_regs *regs, struct sbi_trap_info *trap)
 		vsstatus &= ~SSTATUS_SIE;
 
 		/* Update VS-mode SSTATUS CSR */
-		if (misa_extension('H'))
+		if (misa_extension('H')) {
 			csr_write(CSR_VSSTATUS, vsstatus);
-		else
-			csr_write(CSR_SSTATUS, vsstatus);
+		} else {
+			regs->mstatus &= ~SSTATUS_WRITABLE_MASK;
+			regs->mstatus |= SSTATUS_WRITABLE_MASK & vsstatus;
+		}
 	} else {
 		/* Update S-mode exception info */
 		csr_write(CSR_STVAL, trap->tval);

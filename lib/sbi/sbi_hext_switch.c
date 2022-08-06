@@ -15,6 +15,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 			  bool virt)
 {
 	bool tvm, tw, tsr;
+	unsigned long sstatus;
 
 	if (hext->virt == virt)
 		return;
@@ -26,7 +27,11 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		tw  = (hext->hstatus & HSTATUS_VTW) != 0;
 		tsr = (hext->hstatus & HSTATUS_VTSR) != 0;
 
-		hext->sstatus  = csr_swap(CSR_SSTATUS, hext->sstatus);
+		sstatus = regs->mstatus & SSTATUS_WRITABLE_MASK;
+		regs->mstatus &= ~SSTATUS_WRITABLE_MASK;
+		regs->mstatus |= SSTATUS_WRITABLE_MASK & hext->sstatus;
+		hext->sstatus = sstatus;
+
 		hext->stvec    = csr_swap(CSR_STVEC, hext->stvec);
 		hext->sscratch = csr_swap(CSR_SSCRATCH, hext->sscratch);
 		hext->sepc     = csr_swap(CSR_SEPC, hext->sepc);
@@ -81,7 +86,11 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		tw  = false;
 		tsr = (hext->hstatus & HSTATUS_SPV) != 0;
 
-		hext->sstatus  = csr_swap(CSR_SSTATUS, hext->sstatus);
+		sstatus = regs->mstatus & SSTATUS_WRITABLE_MASK;
+		regs->mstatus &= ~SSTATUS_WRITABLE_MASK;
+		regs->mstatus |= SSTATUS_WRITABLE_MASK & hext->sstatus;
+		hext->sstatus = sstatus;
+
 		hext->stvec    = csr_swap(CSR_STVEC, hext->stvec);
 		hext->sscratch = csr_swap(CSR_SSCRATCH, hext->sscratch);
 		hext->sepc     = csr_swap(CSR_SEPC, hext->sepc);
@@ -101,7 +110,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		 *
 		 * Similarly for sstatus.VS.
 		 */
-		csr_set(CSR_SSTATUS, SSTATUS_FS | SSTATUS_VS);
+		regs->mstatus |= SSTATUS_FS | SSTATUS_VS;
 
 		// FIXME: Interrupts don't actually work like this
 		hext->sip = csr_swap(CSR_SIP, hext->sip);
