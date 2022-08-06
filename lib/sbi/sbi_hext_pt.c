@@ -106,5 +106,6 @@ void sbi_hext_pt_flush_all(struct pt_area_info *pt_area)
 {
 	pt_area->alloc_top = pt_area->pt_start + PT_NODE_SIZE;
 	pt_area->free_list = (unsigned long)-1;
-	asm volatile("sfence.vma");
+	sbi_memset((void *)pt_area->pt_start, 0, PT_NODE_SIZE);
+	asm volatile("sfence.vma" ::: "memory");
 }
