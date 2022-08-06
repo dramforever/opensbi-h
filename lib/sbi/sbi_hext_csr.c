@@ -252,6 +252,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 
 	case CSR_VSATP:
 		csr_val = sanitize_csr(CSR_SATP, hext->vsatp, csr_val);
+		asm volatile("sfence.vma" ::: "memory");
 
 		/* ASIDLEN = 0 */
 		csr_val &= ~SATP_ASID_MASK;
