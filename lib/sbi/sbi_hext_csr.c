@@ -267,12 +267,6 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			/* Unsupported mode, do nothing */
 		}
 
-		if ((hext->hgatp >> HGATP_MODE_SHIFT) != HGATP_MODE_OFF ||
-		    (hext->hstatus & HSTATUS_VTVM)) {
-			regs->mstatus |= MSTATUS_TVM;
-		} else {
-			regs->mstatus &= ~MSTATUS_TVM;
-		}
 		return SBI_OK;
 
 	case CSR_SATP:

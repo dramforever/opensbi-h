@@ -79,7 +79,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 	} else {
 		tvm = false;
 		tw  = false;
-		tsr = false;
+		tsr = (hext->hstatus & HSTATUS_SPV) != 0;
 
 		hext->sstatus  = csr_swap(CSR_SSTATUS, hext->sstatus);
 		hext->stvec    = csr_swap(CSR_STVEC, hext->stvec);
