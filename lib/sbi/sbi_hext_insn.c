@@ -94,15 +94,16 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 	struct hext_state *hext = sbi_hext_current_state();
 	struct sbi_ptw_csr csr = { .hgatp = hext->hgatp, .vsatp = hext->vsatp };
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
+	unsigned long funct3	= GET_RM(insn);
+	unsigned long prv	= (insn >> 28) & 0x3;
 
-	if (!sbi_hext_enabled() || hext->virt)
+	if (!sbi_hext_enabled())
 		return SBI_ENOTSUPP;
-
-	unsigned long funct3 = GET_RM(insn);
-	unsigned long prv    = (insn >> 28) & 0x3;
 
 	if (prv == 0x2) {
 		/* Hypervisor-level instruction */
+		if (hext->virt)
+			return SBI_ENOTSUPP;
 
 		switch (funct3) {
 		case 0b000:
@@ -151,8 +152,12 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 				   INSN_MATCH_SFENCE_VMA ||
 			   (insn & INSN_MASK_SINVAL_VMA) ==
 				   INSN_MATCH_SINVAL_VMA) {
-			sbi_panic("%s: TODO: Trapped sfence.vma/sinval.vma\n",
-				  __func__);
+			if (!hext->virt)
+				return SBI_ENOTSUPP;
+
+			sbi_hext_pt_flush_all(&hext->pt_area);
+			regs->mepc += 4;
+			return SBI_OK;
 		} else {
 			return SBI_ENOTSUPP;
 		}
