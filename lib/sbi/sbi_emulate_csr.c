@@ -147,6 +147,9 @@ int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
 #undef switchcase_hpm_2
 #undef switchcase_hpm
 
+	case CSR_SATP:
+		return sbi_hext_csr_read(csr_num, regs, csr_val);
+
 	default:
 		if ((csr_num & 0x300) == 0x200) {
 			ret = sbi_hext_csr_read(csr_num, regs, csr_val);
@@ -189,6 +192,9 @@ int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			ret = SBI_ENOTSUPP;
 		break;
 #endif
+	case CSR_SATP:
+		return sbi_hext_csr_write(csr_num, regs, csr_val);
+
 	default:
 		if ((csr_num & 0x300) == 0x200) {
 			ret = sbi_hext_csr_write(csr_num, regs, csr_val);

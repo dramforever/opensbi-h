@@ -35,8 +35,10 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 	struct hext_state *hext = sbi_hext_current_state();
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
-	if (!sbi_hext_enabled() || hext->virt || mpp < PRV_S)
+	if (!sbi_hext_enabled() || (hext->virt && csr_num != CSR_SATP) ||
+	    mpp < PRV_S) {
 		return SBI_ENOTSUPP;
+	}
 
 	switch (csr_num) {
 	case CSR_HSTATUS:
@@ -115,6 +117,13 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		*csr_val = hext->vsatp;
 		return SBI_OK;
 
+	case CSR_SATP:
+		if (!hext->virt)
+			sbi_panic("%s: Read satp trap\n", __func__);
+
+		*csr_val = hext->vsatp;
+		return SBI_OK;
+
 	default:
 		sbi_panic("%s: CSR read 0x%03x: Not implemented\n", __func__,
 			  csr_num);
@@ -129,7 +138,8 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 	unsigned long mode, ppn;
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 
-	if (!sbi_hext_enabled() || hext->virt || mpp < PRV_S)
+	if (!sbi_hext_enabled() || (hext->virt && csr_num != CSR_SATP) ||
+	    mpp < PRV_S)
 		return SBI_ENOTSUPP;
 
 	switch (csr_num) {
@@ -262,7 +272,13 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		} else {
 			regs->mstatus &= ~MSTATUS_TVM;
 		}
+		return SBI_OK;
 
+	case CSR_SATP:
+		if (!hext->virt)
+			sbi_panic("%s: Write satp trap\n", __func__);
+
+		hext->vsatp = csr_val;
 		return SBI_OK;
 
 	default:
