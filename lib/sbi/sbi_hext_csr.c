@@ -274,6 +274,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			sbi_panic("%s: Write satp trap\n", __func__);
 
 		hext->vsatp = csr_val;
+		sbi_hext_pt_flush_all(&hext->pt_area);
 		return SBI_OK;
 
 	default:
