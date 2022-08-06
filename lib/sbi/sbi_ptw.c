@@ -43,6 +43,25 @@ static struct sbi_ptw_mode sbi_ptw_sv39 = { .load_pte	 = sbi_load_pte_gpa,
 					    .addr_signed = true,
 					    .parts	 = { 12, 9, 9, 9, 0 } };
 
+static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
+		       const struct sbi_ptw_csr *csr,
+		       const struct sbi_ptw_mode *mode, struct sbi_ptw_out *out,
+		       struct sbi_trap_info *trap);
+
+static inline ulong convert_pf_to_gpf(ulong cause)
+{
+	switch (cause) {
+	case CAUSE_LOAD_PAGE_FAULT:
+		return CAUSE_LOAD_GUEST_PAGE_FAULT;
+	case CAUSE_STORE_PAGE_FAULT:
+		return CAUSE_STORE_GUEST_PAGE_FAULT;
+	case CAUSE_FETCH_PAGE_FAULT:
+		return CAUSE_FETCH_GUEST_PAGE_FAULT;
+	default:
+		return cause;
+	}
+}
+
 static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
 				 struct sbi_trap_info *trap)
 {
@@ -69,8 +88,39 @@ static sbi_pte_t sbi_load_pte_gpa(sbi_addr_t addr,
 				  const struct sbi_ptw_csr *csr,
 				  struct sbi_trap_info *trap)
 {
-	trap->cause = 0;
-	return 0;
+	struct sbi_ptw_mode *mode = &sbi_ptw_sv39x4;
+	unsigned long pt_root, pa = -1, mstatus;
+	struct sbi_ptw_out out;
+	int ret;
+	sbi_pte_t res = 0x3000;
+
+	if ((csr->hgatp >> HGATP_MODE_SHIFT) != HGATP_MODE_SV39X4)
+		sbi_panic("%s: Not Sv39x4 mode\n", __func__);
+
+	pt_root = (csr->hgatp & HGATP_PPN) << PAGE_SHIFT;
+
+	ret = sbi_pt_walk(addr, pt_root, csr, mode, &out, trap);
+
+	if (ret) {
+		trap->cause = convert_pf_to_gpf(trap->cause);
+		goto trap;
+	}
+
+	pa = (out.base & ~(out.len - 1)) | (addr & (out.len - 1));
+
+	mstatus = csr_read_set(CSR_MSTATUS, MSTATUS_MPP);
+	res	= sbi_load_ulong((unsigned long *)pa, trap);
+	csr_write(CSR_MSTATUS, mstatus);
+
+trap:
+	if (trap->cause) {
+		trap->tval2 = addr;
+		trap->tinst = INSN_PSEUDO_VS_LOAD;
+	}
+
+	// sbi_printf("%s: 0x%llx -> 0x%lx: 0x%016lx\n", __func__, addr, pa, res);
+
+	return res;
 }
 
 static inline bool addr_valid(sbi_addr_t addr, const struct sbi_ptw_mode *mode,
@@ -135,8 +185,7 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 			return SBI_EINVAL;
 		}
 
-		if ((pte & 1) != 1) {
-			// sbi_printf("%s: pte not valid\n", __func__);
+		if ((pte & PTE_V) != 1) {
 			goto invalid;
 		}
 
@@ -260,20 +309,6 @@ void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 			    alloc + alloc_used);
 }
 
-static ulong convert_pf_to_gpf(ulong cause)
-{
-	switch (cause) {
-	case CAUSE_LOAD_PAGE_FAULT:
-		return CAUSE_LOAD_GUEST_PAGE_FAULT;
-	case CAUSE_STORE_PAGE_FAULT:
-		return CAUSE_STORE_GUEST_PAGE_FAULT;
-	case CAUSE_FETCH_PAGE_FAULT:
-		return CAUSE_FETCH_GUEST_PAGE_FAULT;
-	default:
-		return cause;
-	}
-}
-
 /**
  * Translate a guest virtual address based on vsatp and hgatp.
  *
@@ -289,19 +324,41 @@ static ulong convert_pf_to_gpf(ulong cause)
 int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		      struct sbi_ptw_out *out, struct sbi_trap_info *trap)
 {
-	int ret;
+	int ret = 0;
 	sbi_addr_t gpa, pa;
-	struct sbi_ptw_out gout;
-
-	if (csr->vsatp >> SATP_MODE_SHIFT != SATP_MODE_OFF) {
-		sbi_panic("not bare");
-	}
-
-	gpa = gva;
+	struct sbi_ptw_out vsout, gout;
 
 	if (csr->hgatp >> HGATP_MODE_SHIFT != HGATP_MODE_SV39X4) {
-		sbi_panic("not sv39x4");
+		sbi_panic("%s: Unsupported hgatp mode\n", __func__);
 	}
+
+	if (csr->vsatp >> SATP_MODE_SHIFT == SATP_MODE_OFF) {
+		vsout.prot = PROT_ALL;
+		gpa	   = gva;
+	} else if (csr->vsatp >> SATP_MODE_SHIFT == SATP_MODE_SV39) {
+		ret = sbi_pt_walk(gva, (csr->vsatp & SATP_PPN) << PAGE_SHIFT,
+				  csr, &sbi_ptw_sv39, &vsout, trap);
+
+		if (ret) {
+			trap->tval = gva;
+			return ret;
+		}
+
+		gpa = vsout.base + (gva & (vsout.len - 1));
+	} else {
+		sbi_panic("%s: Unsupported vsatp mode\n", __func__);
+	}
+
+	// sbi_printf("%s: gva 0x%llx -> gpa 0x%llx prot ", __func__, gva, gpa);
+
+	// for (int i = 0; i < 8; i++) {
+	// 	if ((vsout.prot >> i) & 1)
+	// 		sbi_printf("%c", prot_names[i]);
+	// 	else
+	// 		sbi_printf("-");
+	// }
+
+	// sbi_printf("\n");
 
 	ret = sbi_pt_walk(gpa, (csr->hgatp & HGATP_PPN) << PAGE_SHIFT, csr,
 			  &sbi_ptw_sv39x4, &gout, trap);
@@ -315,15 +372,12 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		return ret;
 	}
 
-	out->base = gout.base;
-	out->len  = gout.len;
-	out->prot = prot_translate(PROT_ALL, gout.prot);
+	pa = gout.base + (gpa & (gout.len - 1));
 
-	pa = out->base + (gpa & (out->len - 1));
 	// sbi_printf("%s: gpa 0x%llx -> pa 0x%llx prot ", __func__, gpa, pa);
 
 	// for (int i = 0; i < 8; i++) {
-	// 	if ((out->prot >> i) & 1)
+	// 	if ((gout.prot >> i) & 1)
 	// 		sbi_printf("%c", prot_names[i]);
 	// 	else
 	// 		sbi_printf("-");
@@ -334,6 +388,7 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 	/* We only handle base-sized pages for now */
 	out->base = pa & PAGE_MASK;
 	out->len  = 1 << PAGE_SHIFT;
+	out->prot = prot_translate(vsout.prot, gout.prot);
 
 	return SBI_OK;
 }
