@@ -93,6 +93,7 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 {
 	struct hext_state *hext = sbi_hext_current_state();
 	struct sbi_ptw_csr csr = { .hgatp = hext->hgatp, .vsatp = hext->vsatp };
+	struct sbi_trap_info trap;
 	unsigned long mpp = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
 	unsigned long funct3	= GET_RM(insn);
 	unsigned long prv	= (insn >> 28) & 0x3;
@@ -138,7 +139,12 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 		/* Supervisor-level instruction */
 
 		if ((insn & INSN_MASK_WFI) == INSN_MATCH_WFI) {
-			sbi_panic("%s: TODO: Trapped wfi\n", __func__);
+			trap.cause = CAUSE_VIRTUAL_INST_FAULT;
+			trap.epc   = regs->mepc;
+			trap.tval  = insn;
+			trap.tval2 = 0;
+			trap.tinst = 0;
+			return sbi_trap_redirect(regs, &trap);
 		} else if ((insn & INSN_MASK_SRET) == INSN_MATCH_SRET) {
 			if (hext->virt || !(hext->hstatus & HSTATUS_SPV)) {
 				sbi_panic("%s: Unexpected trapped sret",
