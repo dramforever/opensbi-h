@@ -12,6 +12,7 @@
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_error.h>
 #include <sbi/sbi_trap.h>
+#include <sbi/sbi_hext.h>
 
 extern struct sbi_ecall_extension *sbi_ecall_exts[];
 extern unsigned long sbi_ecall_exts_size;
@@ -104,6 +105,14 @@ int sbi_ecall_handler(struct sbi_trap_regs *regs)
 	struct sbi_trap_info trap = {0};
 	unsigned long out_val = 0;
 	bool is_0_1_spec = 0;
+
+	struct hext_state *hext = sbi_hext_current_state();
+
+	if (hext->virt) {
+		trap.cause = CAUSE_VIRTUAL_SUPERVISOR_ECALL;
+		trap.epc   = regs->mepc;
+		return sbi_trap_redirect(regs, &trap);
+	}
 
 	ext = sbi_ecall_find_extension(extension_id);
 	if (ext && ext->handle) {
