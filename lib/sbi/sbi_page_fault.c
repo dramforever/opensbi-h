@@ -28,6 +28,10 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	struct sbi_ptw_out out;
 	struct sbi_trap_info trap;
 	sbi_pte_t access = cause_to_access(cause);
+	bool u_mode =
+		((regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT == PRV_U)
+			? 1
+			: ((regs->mstatus & MSTATUS_SUM) != 0);
 
 	// sbi_printf("%s: page fault 0x%lx cause %d at pc=0x%lx\n", __func__,
 	// 	   tval, (int)cause, regs->mepc);
@@ -38,7 +42,9 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 		goto trap;
 	}
 
-	if ((access & out.prot) != access) {
+	if ((access & out.prot) != access ||
+	    u_mode != ((out.prot & PTE_U) != 0)) {
+		sbi_printf("%s: Access trap\n", __func__);
 		trap.cause = cause;
 		trap.tval  = tval;
 		trap.tval2 = 0;
