@@ -11,6 +11,8 @@
 	 (1U << CAUSE_FETCH_PAGE_FAULT) | (1U << CAUSE_ILLEGAL_INSTRUCTION) | \
 	 (1U << CAUSE_SUPERVISOR_ECALL))
 
+#define MIP_S_ALL (MIP_SEIP | MIP_STIP | MIP_SSIP)
+
 void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 			  bool virt)
 {
@@ -69,15 +71,14 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		hext->sstatus &= ~SSTATUS_SPP;
 
 		// FIXME: Interrupts don't actually work like this
-		hext->sip = csr_swap(CSR_SIP, hext->sip);
+		hext->sip = csr_read_clear(CSR_MIP, MIP_S_ALL) & MIP_S_ALL;
+		csr_set(CSR_MIP, (hext->hvip >> 1) & MIP_STIP);
 
 		hext->satp = csr_swap(
 			CSR_SATP,
 			(SATP_MODE_SV39 << SATP_MODE_SHIFT) |
 				((unsigned long)hext->pt_area.pt_start >> 12));
 		__asm__ __volatile__("sfence.vma");
-
-		csr_clear(CSR_MIDELEG, MIP_SSIP | MIP_STIP | MIP_SEIP);
 
 		hext->medeleg = csr_read_clear(
 			CSR_MEDELEG, ~(hext->hedeleg & ~HEDELEG_MASK));
@@ -113,12 +114,11 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		regs->mstatus |= SSTATUS_FS | SSTATUS_VS;
 
 		// FIXME: Interrupts don't actually work like this
-		hext->sip = csr_swap(CSR_SIP, hext->sip);
+		csr_clear(CSR_MIP, MIP_S_ALL);
+		csr_set(CSR_MIP, hext->sip & ~MIP_SEIP);
 
 		csr_write(CSR_SATP, hext->satp);
 		__asm__ __volatile__("sfence.vma");
-
-		csr_set(CSR_MIDELEG, MIP_SSIP | MIP_STIP | MIP_SEIP);
 
 		csr_write(CSR_MEDELEG, hext->medeleg);
 	}
