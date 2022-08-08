@@ -29,13 +29,17 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	struct sbi_trap_info trap;
 	sbi_pte_t access = cause_to_access(cause);
 	bool u_mode =
-		((regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT == PRV_U)
-			? 1
-			: ((regs->mstatus & MSTATUS_SUM) != 0);
+		((regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT == PRV_U);
+	bool sum = (regs->mstatus & MSTATUS_SUM) != 0;
+	// bool vsbare = (csr.vsatp >> SATP_MODE_SHIFT) == SATP_MODE_OFF;
+
+	bool pte_u;
 
 	// sbi_printf("%s: page fault 0x%lx cause %d at pc=0x%lx\n", __func__,
 	// 	   tval, (int)cause, regs->mepc);
 	ret = sbi_ptw_translate(tval, &csr, &out, &trap);
+
+	pte_u = (out.prot & PTE_U) != 0;
 
 	if (ret) {
 		trap.cause = sbi_convert_access_type(trap.cause, cause);
@@ -43,8 +47,10 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	}
 
 	if ((access & out.prot) != access ||
-	    u_mode != ((out.prot & PTE_U) != 0)) {
-		sbi_printf("%s: Access trap\n", __func__);
+	    (u_mode != pte_u && (u_mode || access == PTE_X || !sum))) {
+		// sbi_printf(
+		// 	"%s: Access trap va %lx, access = %lx, prot = %lx, u_mode = %d, pte.U = %d, sum = %d\n",
+		// 	__func__, tval, access, out.prot, u_mode, pte_u, sum);
 		trap.cause = cause;
 		trap.tval  = tval;
 		trap.tval2 = 0;
