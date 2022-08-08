@@ -235,7 +235,8 @@ invalid:
  */
 static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
 {
-	sbi_pte_t prot = vsprot & (gprot & ~PTE_U) & PROT_ALL;
+	sbi_pte_t prot =
+		(vsprot & gprot & PROT_ALL & ~PTE_U) | (vsprot & PTE_U);
 
 	if (!(gprot & PTE_U) || !(prot & PTE_A))
 		return 0;
@@ -333,7 +334,7 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 	}
 
 	if (csr->vsatp >> SATP_MODE_SHIFT == SATP_MODE_OFF) {
-		vsout.prot = PROT_ALL;
+		vsout.prot = PROT_ALL & ~PTE_U;
 		gpa	   = gva;
 	} else if (csr->vsatp >> SATP_MODE_SHIFT == SATP_MODE_SV39) {
 		ret = sbi_pt_walk(gva, (csr->vsatp & SATP_PPN) << PAGE_SHIFT,

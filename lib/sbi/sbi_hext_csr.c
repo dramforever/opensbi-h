@@ -273,8 +273,13 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		if (!hext->virt)
 			sbi_panic("%s: Write satp trap\n", __func__);
 
-		hext->vsatp = csr_val;
-		sbi_hext_pt_flush_all(&hext->pt_area);
+		/* No ASID */
+		csr_val &= SATP_PPN | SATP_MODE;
+
+		if (csr_val >> SATP_MODE_SHIFT == SATP_MODE_SV39) {
+			hext->vsatp = csr_val;
+			sbi_hext_pt_flush_all(&hext->pt_area);
+		}
 		return SBI_OK;
 
 	default:
