@@ -81,7 +81,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 
 		// FIXME: Interrupts don't actually work like this
 		hext->sip = csr_read_clear(CSR_MIP, MIP_S_ALL) & MIP_S_ALL;
-		csr_set(CSR_MIP, (hext->hvip >> 1) & MIP_STIP);
+		csr_set(CSR_MIP, (hext->hvip >> 1) & (MIP_STIP | MIP_SEIP));
 
 		hext->satp = csr_swap(
 			CSR_SATP,
