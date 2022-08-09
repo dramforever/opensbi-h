@@ -6,6 +6,20 @@ support. It is very much work-in-progress at the moment.
 
 [OpenSBI]: https://github.com/riscv-software-src/opensbi
 
+Status Update (2022-08-09)
+--------------------------
+
+We can run [QEMU]/OpenSBI-H/[XVisor] and boot a minimal mainline Linux 5.19,
+single core, and enter a [Busybox]-based initramfs.
+
+[QEMU]: https://qemu.org
+[XVisor]: http://xhypervisor.org
+[Busybox]: https://busybox.net
+
+Check out this asciinema recording:
+
+[![A preview of a terminal recording, with the asciinema logo as play button.](https://asciinema.org/a/513625.svg)](https://asciinema.org/a/513625)
+
 The original `README.md` follows:
 
 -------------------
