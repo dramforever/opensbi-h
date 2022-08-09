@@ -262,7 +262,7 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 
 		if ((mode == SATP_MODE_OFF && ppn == 0) ||
 		    (mode == SATP_MODE_SV39)) {
-			hext->satp = csr_val;
+			hext->vsatp = csr_val;
 		} else {
 			/* Unsupported mode, do nothing */
 		}
@@ -276,10 +276,17 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		/* No ASID */
 		csr_val &= SATP_PPN | SATP_MODE;
 
-		if (csr_val >> SATP_MODE_SHIFT == SATP_MODE_SV39) {
+		mode = csr_val >> SATP_MODE_SHIFT;
+		ppn  = csr_val & SATP_PPN;
+
+		if ((mode == SATP_MODE_OFF && ppn == 0) ||
+		    (mode == SATP_MODE_SV39)) {
 			hext->vsatp = csr_val;
 			sbi_hext_pt_flush_all(&hext->pt_area);
+		} else {
+			/* Unsupported mode, do nothing */
 		}
+
 		return SBI_OK;
 
 	default:
