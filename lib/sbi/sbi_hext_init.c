@@ -283,6 +283,10 @@ static int patch_fdt_reserve(void *fdt, unsigned long addr, unsigned long size)
 	if (rc < 0)
 		return SBI_EFAIL;
 
+	rc = fdt_setprop_empty(fdt, subnode, "no-map");
+	if (rc < 0)
+		return SBI_EFAIL;
+
 	return SBI_OK;
 }
 
@@ -372,7 +376,7 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 	hext_pt_size  = (1UL << region.order) / PT_NODE_SIZE;
 
 	patch_fdt_reserve((void *)scratch->next_arg1,
-			  (unsigned long)hext_pt_start, hext_pt_size);
+			  (unsigned long)hext_pt_start, (1UL << region.order));
 
 	rc = sbi_hext_pt_init(hext_pt_start, hext_pt_size / hart_count);
 
