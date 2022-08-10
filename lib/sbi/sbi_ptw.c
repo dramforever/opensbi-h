@@ -8,9 +8,6 @@
 #include <sbi/riscv_encoding.h>
 #include <sbi/riscv_asm.h>
 
-/* We don't use the G bit yet */
-#define PROT_ALL (PTE_R | PTE_W | PTE_X | PTE_A | PTE_D | PTE_U)
-
 const char prot_names[] = "vrwxugad";
 
 struct sbi_ptw_mode {
@@ -47,20 +44,6 @@ static int sbi_pt_walk(sbi_addr_t addr, sbi_addr_t pt_root,
 		       const struct sbi_ptw_csr *csr,
 		       const struct sbi_ptw_mode *mode, struct sbi_ptw_out *out,
 		       struct sbi_trap_info *trap);
-
-static inline ulong convert_pf_to_gpf(ulong cause)
-{
-	switch (cause) {
-	case CAUSE_LOAD_PAGE_FAULT:
-		return CAUSE_LOAD_GUEST_PAGE_FAULT;
-	case CAUSE_STORE_PAGE_FAULT:
-		return CAUSE_STORE_GUEST_PAGE_FAULT;
-	case CAUSE_FETCH_PAGE_FAULT:
-		return CAUSE_FETCH_GUEST_PAGE_FAULT;
-	default:
-		return cause;
-	}
-}
 
 static sbi_pte_t sbi_load_pte_pa(sbi_addr_t addr, const struct sbi_ptw_csr *csr,
 				 struct sbi_trap_info *trap)
@@ -225,29 +208,6 @@ invalid:
 }
 
 /**
- * Combine flags from VS-stage leaf PTE and G-stage leaf PTE.
- *
- * This function assumes software management of A and D bits.
- *
- * @param vsprot VS-stage leaf PTE. Only flag bits are considered.
- * @param gprot G-stage leaf PTE. Only flag bits are considered.
- * @return Combined flag bits from the entire translation process.
- */
-static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
-{
-	sbi_pte_t prot =
-		(vsprot & gprot & PROT_ALL & ~PTE_U) | (vsprot & PTE_U);
-
-	if (!(gprot & PTE_U) || !(prot & PTE_A))
-		return 0;
-
-	if (!(prot & PTE_D))
-		prot &= ~PTE_W;
-
-	return prot | PTE_V;
-}
-
-/**
  * Map a page into shadow page table.
  *
  * This function cannot fail.
@@ -323,46 +283,37 @@ void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
  * @return Zero if successful, non-zero if unsuccessful
  */
 int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
-		      struct sbi_ptw_out *out, struct sbi_trap_info *trap)
+		      struct sbi_ptw_out *vsout, struct sbi_ptw_out *gout,
+		      struct sbi_trap_info *trap)
 {
 	int ret = 0;
-	sbi_addr_t gpa, pa;
-	struct sbi_ptw_out vsout, gout;
+	sbi_addr_t gpa;
 
 	if (csr->hgatp >> HGATP_MODE_SHIFT != HGATP_MODE_SV39X4) {
 		sbi_panic("%s: Unsupported hgatp mode\n", __func__);
 	}
 
 	if (csr->vsatp >> SATP_MODE_SHIFT == SATP_MODE_OFF) {
-		vsout.prot = PROT_ALL & ~PTE_U;
-		gpa	   = gva;
+		vsout->prot = PROT_ALL & ~PTE_U;
+		vsout->base = gva & PAGE_MASK;
+		vsout->len  = 1 << PAGE_SHIFT;
+		gpa	    = gva;
 	} else if (csr->vsatp >> SATP_MODE_SHIFT == SATP_MODE_SV39) {
 		ret = sbi_pt_walk(gva, (csr->vsatp & SATP_PPN) << PAGE_SHIFT,
-				  csr, &sbi_ptw_sv39, &vsout, trap);
+				  csr, &sbi_ptw_sv39, vsout, trap);
 
 		if (ret) {
 			trap->tval = gva;
 			return ret;
 		}
 
-		gpa = vsout.base + (gva & (vsout.len - 1));
 	} else {
 		sbi_panic("%s: Unsupported vsatp mode\n", __func__);
 	}
 
-	// sbi_printf("%s: gva 0x%llx -> gpa 0x%llx prot ", __func__, gva, gpa);
-
-	// for (int i = 0; i < 8; i++) {
-	// 	if ((vsout.prot >> i) & 1)
-	// 		sbi_printf("%c", prot_names[i]);
-	// 	else
-	// 		sbi_printf("-");
-	// }
-
-	// sbi_printf("\n");
-
+	gpa = vsout->base + (gva & (vsout->len - 1));
 	ret = sbi_pt_walk(gpa, (csr->hgatp & HGATP_PPN) << PAGE_SHIFT, csr,
-			  &sbi_ptw_sv39x4, &gout, trap);
+			  &sbi_ptw_sv39x4, gout, trap);
 
 	if (ret) {
 		// sbi_printf("%s: Guest-page fault\n", __func__);
@@ -373,23 +324,44 @@ int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		return ret;
 	}
 
-	pa = gout.base + (gpa & (gout.len - 1));
-
-	// sbi_printf("%s: gpa 0x%llx -> pa 0x%llx prot ", __func__, gpa, pa);
-
-	// for (int i = 0; i < 8; i++) {
-	// 	if ((gout.prot >> i) & 1)
-	// 		sbi_printf("%c", prot_names[i]);
-	// 	else
-	// 		sbi_printf("-");
-	// }
-
-	// sbi_printf("\n");
-
-	/* We only handle base-sized pages for now */
-	out->base = pa & PAGE_MASK;
-	out->len  = 1 << PAGE_SHIFT;
-	out->prot = prot_translate(vsout.prot, gout.prot);
-
 	return SBI_OK;
+}
+
+static inline sbi_pte_t convert_access_dirty(sbi_pte_t pte)
+{
+	sbi_pte_t res = pte & (PTE_R | PTE_W | PTE_X);
+
+	if (!(pte & PTE_A))
+		return 0;
+
+	if (!(pte & PTE_D))
+		res &= ~PTE_W;
+
+	return res;
+}
+
+int sbi_ptw_check_access(const struct sbi_ptw_out *vsout,
+			 const struct sbi_ptw_out *gout, sbi_pte_t access,
+			 bool u_mode, bool sum, struct sbi_trap_info *trap)
+{
+	struct hext_state *hext = sbi_hext_current_state();
+	bool vsbare = (hext->vsatp >> SATP_MODE_SHIFT) == SATP_MODE_OFF;
+	bool pte_u  = (vsout->prot & PTE_U) != 0;
+
+	trap->cause = 0;
+
+	if (!(gout->prot & PTE_U) ||
+	    !(convert_access_dirty(gout->prot) & access)) {
+		trap->cause = CAUSE_LOAD_GUEST_PAGE_FAULT;
+		return SBI_EINVAL;
+	}
+
+	if (!vsbare &&
+	    ((u_mode != pte_u && (u_mode || access == PTE_X || !sum)) ||
+	     !(convert_access_dirty(vsout->prot) & access))) {
+		trap->cause = CAUSE_LOAD_PAGE_FAULT;
+		return SBI_EINVAL;
+	}
+
+	return 0;
 }

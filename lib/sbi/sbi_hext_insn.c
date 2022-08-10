@@ -15,12 +15,16 @@
 static u8 sbi_hyp_load_u8(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 			  sbi_pte_t access, struct sbi_trap_info *trap)
 {
+	struct hext_state *hext = sbi_hext_current_state();
+	bool u_mode		= !(hext->hstatus & HSTATUS_SPVP);
+	bool sum		= (hext->sstatus & SSTATUS_SUM) != 0;
+
 	int ret;
 	u8 result;
-	unsigned long mstatus, pa;
-	struct sbi_ptw_out out;
+	unsigned long mstatus, gpa, pa;
+	struct sbi_ptw_out vsout, gout;
 
-	ret = sbi_ptw_translate(gva, csr, &out, trap);
+	ret = sbi_ptw_translate(gva, csr, &vsout, &gout, trap);
 
 	if (ret) {
 		trap->cause = sbi_convert_access_type(trap->cause,
@@ -28,16 +32,15 @@ static u8 sbi_hyp_load_u8(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
 		return 0;
 	}
 
-	if (!(out.prot & access)) {
-		trap->cause = CAUSE_LOAD_PAGE_FAULT;
-		trap->tval  = gva;
-		trap->tval2 = 0;
-		trap->tinst = 0;
+	gpa = vsout.base | (gva & (vsout.len - 1));
+	pa  = gout.base | (gpa & (gout.len - 1));
 
+	if (sbi_ptw_check_access(&vsout, &gout, access, u_mode, sum, trap)) {
+		trap->tval  = gva;
+		trap->tval2 = gpa >> 2;
+		trap->tinst = 0;
 		return 0;
 	}
-
-	pa = (out.base & ~(out.len - 1)) | (gva & (out.len - 1));
 
 	mstatus = csr_read_set(CSR_MSTATUS, MSTATUS_MPP);
 	result	= sbi_load_u8((u8 *)pa, trap);

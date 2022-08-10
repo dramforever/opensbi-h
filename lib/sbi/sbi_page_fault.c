@@ -20,43 +20,66 @@ static inline sbi_pte_t cause_to_access(unsigned long cause)
 	}
 }
 
+/**
+ * Combine flags from VS-stage leaf PTE and G-stage leaf PTE.
+ *
+ * This function assumes software management of A and D bits.
+ *
+ * @param vsprot VS-stage leaf PTE. Only flag bits are considered.
+ * @param gprot G-stage leaf PTE. Only flag bits are considered.
+ * @return Combined flag bits from the entire translation process.
+ */
+static sbi_pte_t prot_translate(sbi_pte_t vsprot, sbi_pte_t gprot)
+{
+	sbi_pte_t prot =
+		(vsprot & gprot & PROT_ALL & ~PTE_U) | (vsprot & PTE_U);
+
+	if (!(gprot & PTE_U) || !(prot & PTE_A))
+		return 0;
+
+	if (!(prot & PTE_D))
+		prot &= ~PTE_W;
+
+	return prot | PTE_V;
+}
+
 int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 {
 	int ret;
 	struct hext_state *hext = sbi_hext_current_state();
 	struct sbi_ptw_csr csr = { .hgatp = hext->hgatp, .vsatp = hext->vsatp };
-	struct sbi_ptw_out out;
+	struct sbi_ptw_out vsout, gout, out;
 	struct sbi_trap_info trap;
-	sbi_pte_t access = cause_to_access(cause);
 	bool u_mode =
 		((regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT == PRV_U);
 	bool sum = (regs->mstatus & MSTATUS_SUM) != 0;
-	// bool vsbare = (csr.vsatp >> SATP_MODE_SHIFT) == SATP_MODE_OFF;
 
-	bool pte_u;
+	sbi_pte_t access = cause_to_access(cause);
+	sbi_addr_t gpa, pa;
 
 	// sbi_printf("%s: page fault 0x%lx cause %d at pc=0x%lx\n", __func__,
 	// 	   tval, (int)cause, regs->mepc);
-	ret = sbi_ptw_translate(tval, &csr, &out, &trap);
-
-	pte_u = (out.prot & PTE_U) != 0;
+	ret = sbi_ptw_translate(tval, &csr, &vsout, &gout, &trap);
 
 	if (ret) {
 		trap.cause = sbi_convert_access_type(trap.cause, cause);
 		goto trap;
 	}
 
-	if ((access & out.prot) != access ||
-	    (u_mode != pte_u && (u_mode || access == PTE_X || !sum))) {
-		// sbi_printf(
-		// 	"%s: Access trap va %lx, access = %lx, prot = %lx, u_mode = %d, pte.U = %d, sum = %d\n",
-		// 	__func__, tval, access, out.prot, u_mode, pte_u, sum);
-		trap.cause = cause;
+	gpa = vsout.base | (tval & (vsout.len - 1));
+	pa  = gout.base | (gpa & (gout.len - 1));
+
+	if (sbi_ptw_check_access(&vsout, &gout, access, u_mode, sum, &trap)) {
+		trap.cause = sbi_convert_access_type(trap.cause, cause);
 		trap.tval  = tval;
-		trap.tval2 = 0;
+		trap.tval2 = gpa >> 2;
 		trap.tinst = 0;
 		goto trap;
 	}
+
+	out.base = pa & PAGE_MASK;
+	out.len	 = 1 << PAGE_SHIFT;
+	out.prot = prot_translate(vsout.prot, gout.prot);
 
 	sbi_pt_map(tval, &out, &hext->pt_area);
 	asm volatile("sfence.vma" ::: "memory");

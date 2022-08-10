@@ -9,6 +9,9 @@
 #include <sbi/sbi_trap.h>
 #include <sbi/sbi_hext.h>
 
+/* We don't use the G bit yet */
+#define PROT_ALL (PTE_R | PTE_W | PTE_X | PTE_A | PTE_D | PTE_U)
+
 typedef unsigned long sbi_pte_t;
 typedef unsigned long long sbi_addr_t;
 
@@ -28,9 +31,13 @@ struct sbi_ptw_out {
 };
 
 int sbi_ptw_translate(sbi_addr_t gva, const struct sbi_ptw_csr *csr,
-		      struct sbi_ptw_out *out, struct sbi_trap_info *trap);
+		      struct sbi_ptw_out *vsout, struct sbi_ptw_out *gout,
+		      struct sbi_trap_info *trap);
 void sbi_pt_map(sbi_addr_t va, const struct sbi_ptw_out *out,
 		struct pt_area_info *pt_area);
+int sbi_ptw_check_access(const struct sbi_ptw_out *vsout,
+			 const struct sbi_ptw_out *gout, sbi_pte_t access,
+			 bool u_mode, bool sum, struct sbi_trap_info *trap);
 
 static inline ulong sbi_convert_access_type(ulong cause, ulong orig_cause)
 {
@@ -59,6 +66,20 @@ static inline ulong sbi_convert_access_type(ulong cause, ulong orig_cause)
 		return cause;
 
 #undef access_type_case
+	}
+}
+
+static inline ulong convert_pf_to_gpf(ulong cause)
+{
+	switch (cause) {
+	case CAUSE_LOAD_PAGE_FAULT:
+		return CAUSE_LOAD_GUEST_PAGE_FAULT;
+	case CAUSE_STORE_PAGE_FAULT:
+		return CAUSE_STORE_GUEST_PAGE_FAULT;
+	case CAUSE_FETCH_PAGE_FAULT:
+		return CAUSE_FETCH_GUEST_PAGE_FAULT;
+	default:
+		return cause;
 	}
 }
 #endif
