@@ -48,12 +48,20 @@ int sbi_emulate_csr_read(int csr_num, struct sbi_trap_regs *regs,
 {
 	int ret = 0;
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
+
+	struct hext_state *hext = sbi_hext_current_state();
 	ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
+	bool virt;
+
+	if (misa_extension('H')) {
 #if __riscv_xlen == 32
-	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? true : false;
+		virt = (regs->mstatusH & MSTATUSH_MPV) ? true : false;
 #else
-	bool virt = (regs->mstatus & MSTATUS_MPV) ? true : false;
+		virt = (regs->mstatus & MSTATUS_MPV) ? true : false;
 #endif
+	} else {
+		virt = hext->available && hext->virt;
+	}
 
 	switch (csr_num) {
 	case CSR_HTIMEDELTA:
@@ -170,12 +178,19 @@ int sbi_emulate_csr_write(int csr_num, struct sbi_trap_regs *regs,
 			  ulong csr_val)
 {
 	int ret = 0;
+	struct hext_state *hext = sbi_hext_current_state();
 	ulong prev_mode = (regs->mstatus & MSTATUS_MPP) >> MSTATUS_MPP_SHIFT;
+	bool virt;
+
+	if (misa_extension('H')) {
 #if __riscv_xlen == 32
-	bool virt = (regs->mstatusH & MSTATUSH_MPV) ? true : false;
+		virt = (regs->mstatusH & MSTATUSH_MPV) ? true : false;
 #else
-	bool virt = (regs->mstatus & MSTATUS_MPV) ? true : false;
+		virt = (regs->mstatus & MSTATUS_MPV) ? true : false;
 #endif
+	} else {
+		virt = hext->available && hext->virt;
+	}
 
 	switch (csr_num) {
 	case CSR_HTIMEDELTA:
