@@ -17,7 +17,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 			  bool virt)
 {
 	bool tvm, tw, tsr;
-	unsigned long sstatus;
+	unsigned long sstatus, vsip;
 
 	if (hext->virt == virt)
 		return;
@@ -81,7 +81,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 
 		// FIXME: Interrupts don't actually work like this
 		hext->sip = csr_read_clear(CSR_MIP, MIP_S_ALL) & MIP_S_ALL;
-		csr_set(CSR_MIP, (hext->hvip >> 1) & (MIP_STIP | MIP_SEIP));
+		csr_set(CSR_MIP, hext->hvip >> 1);
 
 		hext->satp = csr_swap(
 			CSR_SATP,
@@ -123,8 +123,11 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		regs->mstatus |= SSTATUS_FS | SSTATUS_VS;
 
 		// FIXME: Interrupts don't actually work like this
-		csr_clear(CSR_MIP, MIP_S_ALL);
+		vsip = csr_read_clear(CSR_MIP, MIP_S_ALL);
 		csr_set(CSR_MIP, hext->sip & ~MIP_SEIP);
+
+		hext->hvip &= ~MIP_VSSIP;
+		hext->hvip |= (vsip & MIP_SSIP) ? MIP_VSSIP : 0;
 
 		csr_write(CSR_SATP, hext->satp);
 		__asm__ __volatile__("sfence.vma");
