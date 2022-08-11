@@ -296,11 +296,13 @@ static int sbi_trap_check_interrupt(struct sbi_trap_regs *regs)
 	struct hext_state *hext = sbi_hext_current_state();
 	struct sbi_trap_info trap;
 
-	if (hext->virt && (hext->sip & MIP_STIP)) {
+	if (hext->virt && (hext->sip & MIP_STIP) && (hext->sie & MIP_STIP)) {
 		trap.cause = IRQ_S_TIMER | BIT(__riscv_xlen - 1);
-	} else if (hext->virt && (hext->sip & MIP_SEIP)) {
+	} else if (hext->virt && (hext->sip & MIP_SEIP) &&
+		   (hext->sie & MIP_SEIP)) {
 		trap.cause = IRQ_S_EXT | BIT(__riscv_xlen - 1);
-	} else if (hext->virt && (hext->sip & MIP_SSIP)) {
+	} else if (hext->virt && (hext->sip & MIP_SSIP) &&
+		   (hext->sie & MIP_SSIP)) {
 		trap.cause = IRQ_S_SOFT | BIT(__riscv_xlen - 1);
 	} else {
 		return SBI_OK;
