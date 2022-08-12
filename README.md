@@ -20,6 +20,21 @@ Check out this asciinema recording:
 
 [![A preview of a terminal recording, with the asciinema logo as play button.](https://asciinema.org/a/513625.svg)](https://asciinema.org/a/513625)
 
+Status Update (2022-08-13)
+--------------------------
+
+After a few fixes, OpenSBI-H runs in KVM.
+
+Tested with QEMU `master` branch due to a bug with `mcounteren` in version 7.0
+(and possibly below) that [was fixed][mcounteren-fix] and due to release with
+version 7.1.
+
+[mcounteren-fix]: https://gitlab.com/qemu-project/qemu/-/commit/a5a92fd6ef038170231933c60cc2780f52b3a2e1
+
+Here's an extremely slow neofetch screenshot:
+
+![Screenshot of neofetch running in a KVM guest using OpenSBI-H](https://user-images.githubusercontent.com/2818072/184427270-13076460-734c-4e7a-86db-0d29438171f0.png)
+
 The original `README.md` follows:
 
 -------------------
