@@ -456,7 +456,7 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 		sbi_hext_relocate(scratch);
 
 		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
-			csr_clear(CSR_MCOUNTEREN, 0x2);
+			csr_write(CSR_MCOUNTEREN, 0);
 
 		sbi_printf("%s: Hypervisor extension emulation enabled.\n",
 			   __func__);
