@@ -50,18 +50,25 @@ static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
 		ret = sbi_tlb_request(regs->a0, regs->a1, &tlb_info);
 		break;
 	case SBI_EXT_RFENCE_REMOTE_HFENCE_VVMA:
-		vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
-		vmid = vmid >> HGATP_VMID_SHIFT;
+		if (misa_extension('H')) {
+			vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
+			vmid = vmid >> HGATP_VMID_SHIFT;
+		} else {
+			vmid = 0;
+		}
 		SBI_TLB_INFO_INIT(&tlb_info, regs->a2, regs->a3, 0, vmid,
 				  sbi_tlb_local_hfence_vvma, source_hart);
 		ret = sbi_tlb_request(regs->a0, regs->a1, &tlb_info);
 		break;
 	case SBI_EXT_RFENCE_REMOTE_HFENCE_VVMA_ASID:
-		vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
-		vmid = vmid >> HGATP_VMID_SHIFT;
-		SBI_TLB_INFO_INIT(&tlb_info, regs->a2, regs->a3, regs->a4,
-				  vmid, sbi_tlb_local_hfence_vvma_asid,
-				  source_hart);
+		if (misa_extension('H')) {
+			vmid = (csr_read(CSR_HGATP) & HGATP_VMID_MASK);
+			vmid = vmid >> HGATP_VMID_SHIFT;
+		} else {
+			vmid = 0;
+		}
+		SBI_TLB_INFO_INIT(&tlb_info, regs->a2, regs->a3, regs->a4, vmid,
+				  sbi_tlb_local_hfence_vvma_asid, source_hart);
 		ret = sbi_tlb_request(regs->a0, regs->a1, &tlb_info);
 		break;
 	case SBI_EXT_RFENCE_REMOTE_SFENCE_VMA:
