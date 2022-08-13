@@ -14,6 +14,7 @@
 #include <sbi/sbi_ecall_interface.h>
 #include <sbi/sbi_trap.h>
 #include <sbi/sbi_tlb.h>
+#include <sbi/sbi_hext.h>
 
 static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
 				    const struct sbi_trap_regs *regs,
@@ -24,10 +25,11 @@ static int sbi_ecall_rfence_handler(unsigned long extid, unsigned long funcid,
 	unsigned long vmid;
 	struct sbi_tlb_info tlb_info;
 	u32 source_hart = current_hartid();
+	struct hext_state *hext = sbi_hext_current_state();
 
 	if (funcid >= SBI_EXT_RFENCE_REMOTE_HFENCE_GVMA_VMID &&
 	    funcid <= SBI_EXT_RFENCE_REMOTE_HFENCE_VVMA)
-		if (!misa_extension('H'))
+		if (!misa_extension('H') && !hext->available)
 			return SBI_ENOTSUPP;
 
 	switch (funcid) {
