@@ -9,6 +9,7 @@
 #include <sbi/sbi_domain.h>
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_hart.h>
+#include <sbi/sbi_page_fault.h>
 
 #include <sbi_utils/fdt/fdt_helper.h>
 
@@ -417,6 +418,21 @@ static void sbi_hext_init_state(struct hext_state *hext)
 #endif
 }
 
+static bool check_errata_cip_453()
+{
+	unsigned long vendorid = csr_read(CSR_MVENDORID);
+	unsigned long arch_id  = csr_read(CSR_MARCHID);
+	unsigned long impid    = csr_read(CSR_MIMPID);
+
+	if (vendorid != 0x489)
+		return false;
+
+	if (arch_id != 0x8000000000000007 ||
+	    (impid < 0x20181004 || impid > 0x20191105))
+		return false;
+	return true;
+}
+
 int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 {
 	int rc;
@@ -433,6 +449,8 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 				__func__);
 			return SBI_OK;
 		}
+
+		errata_cip_453 = check_errata_cip_453();
 
 		if (!sbi_hext_mstatus_features()) {
 			sbi_printf(

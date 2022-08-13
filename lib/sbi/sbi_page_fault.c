@@ -6,6 +6,8 @@
 #include <sbi/sbi_hext.h>
 #include <sbi/sbi_console.h>
 
+bool errata_cip_453 = 0;
+
 static inline sbi_pte_t cause_to_access(unsigned long cause)
 {
 	switch (cause) {
@@ -56,6 +58,14 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 
 	sbi_pte_t access = cause_to_access(cause);
 	sbi_addr_t gpa, pa;
+
+	if (errata_cip_453) {
+		switch (cause) {
+		case CAUSE_FETCH_PAGE_FAULT:
+		case CAUSE_FETCH_ACCESS:
+			tval = regs->mepc + ((tval ^ regs->mepc) & 2);
+		}
+	}
 
 	// sbi_printf("%s: page fault 0x%lx cause %d at pc=0x%lx\n", __func__,
 	// 	   tval, (int)cause, regs->mepc);
