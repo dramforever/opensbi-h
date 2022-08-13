@@ -6,22 +6,19 @@ support. It is very much work-in-progress at the moment.
 
 [OpenSBI]: https://github.com/riscv-software-src/opensbi
 
-Status Update (2022-08-09)
---------------------------
+Status updates
+--------------
 
-We can run [QEMU]/OpenSBI-H/[XVisor] and boot a minimal mainline Linux 5.19,
-single core, and enter a [Busybox]-based initramfs.
+### 2022-08-14
 
-[QEMU]: https://qemu.org
-[XVisor]: http://xhypervisor.org
-[Busybox]: https://busybox.net
+OpenSBI-H runs on RISC-V hardware, namely StarFive VisionFive. We've achieved
+our goal of adding hypervisor support for existing hardware, but there are still
+many more details to fix before we achieve hypervisor spec compliance.
+Performance improvements are also needed.
 
-Check out this asciinema recording:
+![OpenSBI-H running KVM on real hardware](https://user-images.githubusercontent.com/2818072/184507980-55601f7c-ec32-4ca1-9e57-6963bca70346.png)
 
-[![A preview of a terminal recording, with the asciinema logo as play button.](https://asciinema.org/a/513625.svg)](https://asciinema.org/a/513625)
-
-Status Update (2022-08-13)
---------------------------
+### 2022-08-13
 
 After a few fixes, OpenSBI-H runs in KVM.
 
@@ -31,9 +28,16 @@ version 7.1.
 
 [mcounteren-fix]: https://gitlab.com/qemu-project/qemu/-/commit/a5a92fd6ef038170231933c60cc2780f52b3a2e1
 
-Here's an extremely slow neofetch screenshot:
+### 2022-08-09
 
-![Screenshot of neofetch running in a KVM guest using OpenSBI-H](https://user-images.githubusercontent.com/2818072/184427270-13076460-734c-4e7a-86db-0d29438171f0.png)
+We can run [QEMU]/OpenSBI-H/[XVisor] and boot a minimal mainline Linux 5.19,
+single core, and enter a [Busybox]-based initramfs.
+
+[QEMU]: https://qemu.org
+[XVisor]: http://xhypervisor.org
+[Busybox]: https://busybox.net
+
+-------------------
 
 The original `README.md` follows:
 
