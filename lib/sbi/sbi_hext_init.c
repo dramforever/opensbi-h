@@ -473,9 +473,6 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 
 		sbi_hext_relocate(scratch);
 
-		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
-			csr_write(CSR_MCOUNTEREN, 0);
-
 		sbi_printf("%s: Hypervisor extension emulation enabled.\n",
 			   __func__);
 
@@ -484,6 +481,9 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 			return SBI_OK;
 		}
 	}
+
+	if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
+		csr_clear(CSR_MCOUNTEREN, BIT(CSR_TIME - CSR_CYCLE));
 
 	struct hext_state *hext = sbi_hext_current_state();
 	sbi_hext_init_state(hext);
