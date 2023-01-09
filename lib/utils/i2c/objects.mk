@@ -14,3 +14,6 @@ libsbiutils-objs-$(CONFIG_FDT_I2C) += i2c/fdt_i2c_adapter_drivers.o
 
 carray-fdt_i2c_adapter_drivers-$(CONFIG_FDT_I2C_SIFIVE) += fdt_i2c_adapter_sifive
 libsbiutils-objs-$(CONFIG_FDT_I2C_SIFIVE) += i2c/fdt_i2c_sifive.o
+
+carray-fdt_i2c_adapter_drivers-$(CONFIG_FDT_I2C_STARFIVE) += fdt_i2c_adapter_starfive
+libsbiutils-objs-$(CONFIG_FDT_I2C_STARFIVE) += i2c/fdt_i2c_starfive.o
