@@ -67,6 +67,7 @@ static u32 selected_hartid = -1;
 #define TIMEOUT_COUNT			100000
 #define AXP15060_POWER_REG		0x32
 #define AXP15060_POWER_OFF_BIT		(0x1 << 7)
+#define AXP15060_RESET_BIT		(0x1 << 6)
 
 static int pm_system_reset_check(u32 type, u32 reason)
 {
@@ -74,7 +75,6 @@ static int pm_system_reset_check(u32 type, u32 reason)
 	case SBI_SRST_RESET_TYPE_SHUTDOWN:
 		return 1;
 	case SBI_SRST_RESET_TYPE_COLD_REBOOT:
-	case SBI_SRST_RESET_TYPE_WARM_REBOOT:
 		if (pmic_inst.adapter)
 			return 255;
 		break;
@@ -144,7 +144,7 @@ static int shutdown_cpu_systop_domain()
 	return ret;
 }
 
-static int pmic_shutdown(struct pmic *pmic)
+static int pmic_ops(struct pmic *pmic, int type)
 {
 	int ret = 0;
 	uint8_t val;
@@ -166,6 +166,10 @@ static int pmic_shutdown(struct pmic *pmic)
 
 		retry = 10;
 		val |= AXP15060_POWER_OFF_BIT;
+		if (type == SBI_SRST_RESET_TYPE_SHUTDOWN)
+			val |= AXP15060_POWER_OFF_BIT;
+		else
+			val |= AXP15060_RESET_BIT;
 
 		do {
 			ret = i2c_adapter_reg_write(pmic->adapter, pmic->dev_addr,
@@ -185,11 +189,6 @@ err:
 	return 0;
 }
 
-static int pmic_reset(struct pmic *pmic)
-{
-	return 0;
-}
-
 static int pmu_shutdown()
 {
 	shutdown_device_power_domain();
@@ -200,17 +199,14 @@ static int pmu_shutdown()
 
 static void pm_system_reset(u32 type, u32 reason)
 {
+	if (pmic_inst.adapter) {
+		pmic_ops(&pmic_inst, type);
+		return;
+	}
+
 	switch (type) {
 	case SBI_SRST_RESET_TYPE_SHUTDOWN:
-		if (pmic_inst.adapter)
-			pmic_shutdown(&pmic_inst);
-		else
-			pmu_shutdown();
-		break;
-	case SBI_SRST_RESET_TYPE_COLD_REBOOT:
-	case SBI_SRST_RESET_TYPE_WARM_REBOOT:
-		if (pmic_inst.adapter)
-			pmic_reset(&pmic_inst);
+		pmu_shutdown();
 		break;
 	default:
 		goto skip_reset;
