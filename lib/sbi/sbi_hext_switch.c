@@ -25,7 +25,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 	hext->virt = virt;
 
 	if (virt) {
-		tvm = TRUE;
+		tvm = true;
 		tw  = (hext->hstatus & HSTATUS_VTW) != 0;
 		tsr = (hext->hstatus & HSTATUS_VTSR) != 0;
 

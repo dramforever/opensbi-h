@@ -325,7 +325,7 @@ static int hart_with_mmu_count(void *fdt)
 
 		count++;
 
-		hart_hext_state[hart_index].available = TRUE;
+		hart_hext_state[hart_index].available = true;
 	}
 
 	if ((cpu_offset < 0) && (cpu_offset != -FDT_ERR_NOTFOUND))
