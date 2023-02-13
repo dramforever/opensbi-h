@@ -32,6 +32,8 @@ int sbi_hext_pt_init(unsigned long pt_start, unsigned long nodes_per_hart)
 			pt_area->pt_start + nodes_per_hart * PT_NODE_SIZE;
 
 		pt_area->free_list = (unsigned long)-1;
+
+		sbi_memset((void *)pt_area->pt_start, 0, PT_NODE_SIZE);
 	}
 
 	return SBI_OK;
