@@ -482,9 +482,6 @@ int sbi_hext_init(struct sbi_scratch *scratch, bool cold_boot)
 		}
 	}
 
-	if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
-		csr_clear(CSR_MCOUNTEREN, BIT(CSR_TIME - CSR_CYCLE));
-
 	struct hext_state *hext = sbi_hext_current_state();
 	sbi_hext_init_state(hext);
 

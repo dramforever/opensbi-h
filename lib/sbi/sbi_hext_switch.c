@@ -5,6 +5,8 @@
 #include <sbi/sbi_hext.h>
 #include <sbi/sbi_console.h>
 #include <sbi/riscv_encoding.h>
+#include <sbi/sbi_hart.h>
+#include <sbi/sbi_bitops.h>
 
 #define HEDELEG_MASK                                                          \
 	((1U << CAUSE_LOAD_PAGE_FAULT) | (1U << CAUSE_STORE_PAGE_FAULT) |     \
@@ -18,6 +20,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 {
 	bool tvm, tw, tsr;
 	unsigned long sstatus, vsip;
+	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
 	if (hext->virt == virt)
 		return;
@@ -91,6 +94,10 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 
 		hext->medeleg = csr_read_clear(
 			CSR_MEDELEG, ~(hext->hedeleg & ~HEDELEG_MASK));
+
+		// trap CSR_TIME
+		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
+			csr_clear(CSR_MCOUNTEREN, BIT(CSR_TIME - CSR_CYCLE));
 	} else {
 		tvm = false;
 		tw  = false;
@@ -133,6 +140,10 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		__asm__ __volatile__("sfence.vma");
 
 		csr_write(CSR_MEDELEG, hext->medeleg);
+
+		// Do not trap CSR_TIME
+		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10)
+			csr_set(CSR_MCOUNTEREN, BIT(CSR_TIME - CSR_CYCLE));
 	}
 
 	if (tvm)
