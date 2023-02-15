@@ -124,6 +124,11 @@ int sbi_hext_csr_read(int csr_num, struct sbi_trap_regs *regs,
 		*csr_val = hext->vsatp;
 		return SBI_OK;
 
+	case CSR_HENVCFG:
+		*csr_val = 0;
+
+		return SBI_OK;
+
 	default:
 		sbi_panic("%s: CSR read 0x%03x: Not implemented\n", __func__,
 			  csr_num);
@@ -286,6 +291,11 @@ int sbi_hext_csr_write(int csr_num, struct sbi_trap_regs *regs,
 		} else {
 			/* Unsupported mode, do nothing */
 		}
+
+		return SBI_OK;
+
+	case CSR_HENVCFG:
+		/* hardwire to 0 */
 
 		return SBI_OK;
 
