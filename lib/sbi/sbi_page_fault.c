@@ -97,6 +97,5 @@ int sbi_page_fault_handler(ulong tval, ulong cause, struct sbi_trap_regs *regs)
 	return SBI_OK;
 
 trap:
-	trap.epc = regs->mepc;
 	return sbi_trap_redirect(regs, &trap);
 }

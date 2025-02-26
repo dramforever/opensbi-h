@@ -118,9 +118,7 @@ inline bool sbi_hext_enabled()
 
 inline struct hext_state *sbi_hext_current_state()
 {
-	const struct sbi_platform *platform = sbi_platform_thishart_ptr();
-	u32 index = sbi_platform_hart_index(platform, current_hartid());
-	return &hart_hext_state[index];
+	return &hart_hext_state[current_hartindex()];
 }
 
 int sbi_hext_pt_init(unsigned long pt_start, unsigned long nodes_per_hart);

@@ -123,6 +123,7 @@ int sbi_ecall_handler(struct sbi_trap_context *tcntx)
 {
 	int ret = 0;
 	struct sbi_trap_regs *regs = &tcntx->regs;
+	struct sbi_trap_info *trap = &tcntx->trap;
 	struct sbi_ecall_extension *ext;
 	unsigned long extension_id = regs->a7;
 	unsigned long func_id = regs->a6;
@@ -132,9 +133,8 @@ int sbi_ecall_handler(struct sbi_trap_context *tcntx)
 	struct hext_state *hext = sbi_hext_current_state();
 
 	if (hext->virt) {
-		trap.cause = CAUSE_VIRTUAL_SUPERVISOR_ECALL;
-		trap.epc   = regs->mepc;
-		return sbi_trap_redirect(regs, &trap);
+		trap->cause = CAUSE_VIRTUAL_SUPERVISOR_ECALL;
+		return sbi_trap_redirect(regs, trap);
 	}
 
 	ext = sbi_ecall_find_extension(extension_id);

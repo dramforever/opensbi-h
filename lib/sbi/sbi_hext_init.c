@@ -295,7 +295,6 @@ static int patch_fdt_reserve(void *fdt, unsigned long addr, unsigned long size)
 static int hart_with_mmu_count(void *fdt)
 {
 	int err, cpu_offset, cpus_offset, len, count = 0;
-	const struct sbi_platform *platform = sbi_platform_thishart_ptr();
 	const char *mmu_type;
 	u32 hartid, hart_index;
 
@@ -319,7 +318,7 @@ static int hart_with_mmu_count(void *fdt)
 		if (!mmu_type || !len)
 			continue;
 
-		hart_index = sbi_platform_hart_index(platform, hartid);
+		hart_index = sbi_hartid_to_hartindex(hartid);
 		if (hart_index == -1u)
 			continue;
 
@@ -341,7 +340,6 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 	unsigned long mem_start, mem_size;
 	unsigned long mem_end_aligned;
 	unsigned long alloc_size;
-	struct sbi_domain_memregion region;
 
 	rc = find_main_memory((void *)scratch->next_arg1, &mem_start,
 			      &mem_size);
@@ -363,10 +361,9 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 		return SBI_OK;
 	}
 
-	sbi_domain_memregion_init(mem_end_aligned - alloc_size, alloc_size,
-				  SBI_DOMAIN_MEMREGION_READABLE, &region);
-
-	rc = sbi_domain_root_add_memregion(&region);
+	rc = sbi_domain_root_add_memrange(mem_end_aligned - alloc_size,
+					  alloc_size, PT_NODE_SIZE,
+					  SBI_DOMAIN_MEMREGION_SHARED_SUR_MRW);
 	if (rc) {
 		sbi_printf(
 			"%s: Failed to add memregion for shadow page tables\n",
@@ -374,11 +371,11 @@ static int allocate_pt_space(struct sbi_scratch *scratch)
 		return SBI_ENOMEM;
 	}
 
-	hext_pt_start = region.base;
-	hext_pt_size  = (1UL << region.order) / PT_NODE_SIZE;
+	hext_pt_start = mem_end_aligned - alloc_size;
+	hext_pt_size  = alloc_size / PT_NODE_SIZE;
 
 	patch_fdt_reserve((void *)scratch->next_arg1,
-			  (unsigned long)hext_pt_start, (1UL << region.order));
+			  (unsigned long)hext_pt_start, alloc_size);
 
 	rc = sbi_hext_pt_init(hext_pt_start, hext_pt_size / hart_count);
 

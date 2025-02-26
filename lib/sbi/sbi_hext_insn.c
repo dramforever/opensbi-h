@@ -76,7 +76,6 @@ static int sbi_hyp_mem(unsigned long insn, const struct sbi_ptw_csr *csr,
 	for (i = 0; i < len; i++) {
 		res = sbi_hyp_load_u8(gva + i, csr, access, &trap);
 		if (trap.cause) {
-			trap.epc = regs->mepc;
 			return sbi_trap_redirect(regs, &trap);
 		}
 		data = data | (res << (i * 8));
@@ -143,7 +142,6 @@ int sbi_hext_insn(unsigned long insn, struct sbi_trap_regs *regs)
 
 		if ((insn & INSN_MASK_WFI) == INSN_MATCH_WFI) {
 			trap.cause = CAUSE_VIRTUAL_INST_FAULT;
-			trap.epc   = regs->mepc;
 			trap.tval  = insn;
 			trap.tval2 = 0;
 			trap.tinst = 0;
