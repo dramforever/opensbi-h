@@ -27,6 +27,11 @@ static bool hpm_allowed(int hpm_num, ulong prev_mode, bool virt)
 		if (sbi_hart_priv_version(scratch) >= SBI_HART_PRIV_VER_1_10) {
 			cen &= csr_read(CSR_MCOUNTEREN);
 			if (virt) {
+				if (!misa_extension('H')) {
+					/* We trap time in guest, but it should be allowed */
+					cen |= BIT(CSR_TIME - CSR_CYCLE);
+				}
+
 				/* HACK: We don't emulate hcounteren, so don't check it */
 				if (misa_extension('H'))
 					cen &= csr_read(CSR_HCOUNTEREN);
