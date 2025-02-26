@@ -214,6 +214,27 @@ not_found:
 	return SBI_OK;
 }
 
+static int relocate_fdt(struct sbi_scratch *scratch,
+			unsigned long *relocate_base) {
+	void *fdt = (void *)scratch->next_arg1;
+	unsigned long fdt_new_start;
+	size_t fdt_size = fdt_totalsize(fdt);
+	if ((unsigned long)fdt + fdt_size > *relocate_base) {
+		fdt_new_start = *relocate_base - fdt_size;
+		fdt_new_start &= PAGE_MASK;
+		*relocate_base = fdt_new_start;
+
+		sbi_printf("%s: Moving initrd 0x%lx -> 0x%lx\n", __func__,
+			(unsigned long)fdt, fdt_new_start);
+
+		memcpy((void*)fdt_new_start, fdt, fdt_size);
+		scratch->next_arg1 = fdt_new_start;
+		root.next_arg1 = fdt_new_start;
+		return SBI_OK;
+	}
+	return SBI_OK;
+}
+
 static int sbi_hext_relocate(struct sbi_scratch *scratch)
 {
 	int rc;
@@ -223,7 +244,9 @@ static int sbi_hext_relocate(struct sbi_scratch *scratch)
 	if (rc)
 		return rc;
 
-	// TODO: Maybe also relocate FDT?
+	rc = relocate_fdt(scratch, &relocate_base);
+	if (rc)
+		return rc;
 
 	return SBI_OK;
 }
