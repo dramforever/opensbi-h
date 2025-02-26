@@ -20,6 +20,7 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 {
 	bool tvm, tw, tsr;
 	unsigned long sstatus, vsip;
+	unsigned long spp;
 	struct sbi_scratch *scratch = sbi_scratch_thishart_ptr();
 
 	if (hext->virt == virt)
@@ -76,10 +77,9 @@ void sbi_hext_switch_virt(struct sbi_trap_regs *regs, struct hext_state *hext,
 		 * FIXME: Why is reading the CSR needed? Why doesn't
 		 * regs->mstatus work?
 		 */
+		spp = (csr_read(CSR_MSTATUS) & SSTATUS_SPP) ? PRV_S : PRV_U;
 		regs->mstatus &= ~MSTATUS_MPP;
-		regs->mstatus |=
-			((csr_read(CSR_MSTATUS) & SSTATUS_SPP) ? PRV_S : PRV_U)
-			<< MSTATUS_MPP_SHIFT;
+		regs->mstatus |= spp << MSTATUS_MPP_SHIFT;
 		hext->sstatus &= ~SSTATUS_SPP;
 
 		// FIXME: Interrupts don't actually work like this
