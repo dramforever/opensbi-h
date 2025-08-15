@@ -1,6 +1,13 @@
 OpenSBI-H: OpenSBI with Software-emulated Hypervisor Extension
 ==============================================================
 
+**OpenSBI-H will no longer receive active development, as RISC-V hardware
+with H extension support is gradually available. OpenSBI-H was never able
+to achieve a useful performance and should not be used except as an
+experiment.**
+
+---
+
 This is a fork of [OpenSBI] that adds software-emulated hypervisor extension
 support. It is very much work-in-progress at the moment.
 
